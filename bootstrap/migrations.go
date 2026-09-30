@@ -8,9 +8,8 @@ import (
 
 func Migrations() []schema.Migration {
 	return []schema.Migration{
-		&migrations.M20210101000001CreateJobsTable{},
-		&migrations.M20260929234543CreateUsersTable{},
-		&migrations.M20260929235524CreateUserTable{},
+	
+		
 		&migrations.M20260929235634CreateUserAddressesTable{},
 		&migrations.M20260929235644CreateCompaniesTable{},
 		&migrations.M20260929235653CreateCompanyMembersTable{},
