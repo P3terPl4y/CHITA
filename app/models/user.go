@@ -21,7 +21,7 @@ type User struct {
 	DisplayName       string     `gorm:"type:varchar(120);not null" json:"display_name"`
 	AvatarURL         string     `gorm:"type:text" json:"avatar_url,omitempty"`
 	Role              string     `gorm:"type:varchar(20);index;not null;default:'courier'" json:"role"`
-	Status            string     `gorm:"type:varchar(20);index;not null;default:'pending'" json:"status"`
+	Status            bool     `gorm:"type:varchar(20);index;not null;default:'pending'" json:"status"`
 	Locale            string     `gorm:"type:varchar(10);not null;default:'es'" json:"locale"`
 	Timezone          string     `gorm:"type:varchar(50);not null;default:'UTC'" json:"timezone"`
 	LastLoginAt       *time.Time `json:"last_login_at,omitempty"`

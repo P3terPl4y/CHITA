@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"goravel/app/models"
-	ws "goravel/app/websockets"
+	//ws "goravel/app/websockets"
 	"goravel/bootstrap"
 	"goravel/routes"
 
@@ -220,12 +220,12 @@ func main() {
 	app.Use("/leaflet", static.New("./public/leaflet"))
 
 	// ── 11. WebSockets ──
-	hub := ws.NewHub()
-	go hub.Run()
+	//hub := ws.NewHub()
+	/*go hub.Run()
 	ws.RegisterRoutes(app, hub)
-
+*/
 	// ── 12. Rutas HTTP ──
-	routes.Web(app)
+	routes.Web(/*app*/)
 
 	// ── 13. Arranque ──
 	log.Println("🚀 ALCON escuchando en :3330")

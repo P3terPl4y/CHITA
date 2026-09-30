@@ -32,7 +32,7 @@ func (r *M20260929234543CreateUsersTable) Up() error {
 			table.String("display_name", 120)
 			table.Text("avatar_url")
 			table.String("role", 20).Default("courier")
-			table.String("status", 20).Default("pending")
+			table.Bool("status", 20).Default(true)
 			table.String("locale", 10).Default("es")
 			table.String("timezone", 50).Default("UTC")
 			table.TimestampTz("last_login_at").Nullable()
