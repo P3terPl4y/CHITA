@@ -94,7 +94,7 @@ func ensureAdminUser() {
 func main() {
 	// ── 1. Bootstrap de Goravel ──
 	_ = bootstrap.Boot()
-	ensureAdminUser()
+	//ensureAdminUser()
 
 	// ── 2. Store de Redis para sesiones ──
 	redisStore := redis.New(redis.Config{
