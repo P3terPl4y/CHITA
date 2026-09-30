@@ -3,7 +3,6 @@ module goravel
 go 1.26.0
 
 require (
-	github.com/gofiber/contrib/v3/websocket v1.2.6
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/gofiber/storage/redis/v3 v3.6.1
 	github.com/gofiber/template/html/v3 v3.0.9
@@ -12,7 +11,6 @@ require (
 	github.com/goravel/openai v1.18.0
 	github.com/goravel/postgres v1.18.0
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/crypto v0.57.0
 )
 
 require (
@@ -47,7 +45,6 @@ require (
 	github.com/dromara/carbon/v2 v2.6.11 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
@@ -112,7 +109,6 @@ require (
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/samber/slog-common v0.21.0 // indirect
 	github.com/samber/slog-multi v1.8.0 // indirect
-	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -157,6 +153,7 @@ require (
 	go.uber.org/atomic v1.12.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.22.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
