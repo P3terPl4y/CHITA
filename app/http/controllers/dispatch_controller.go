@@ -28,7 +28,8 @@ func (d *DispatchController) Location(c fiber.Ctx) error {
 	if e := Decode(c, &r); e != nil {
 		return e
 	}
-	if e := services.SaveLocation(current(c), r); e != nil {
+	grant, _ := session.FromContext(c).Get("auth_grant").(string)
+	if e := services.SaveLocation(current(c), r, grant); e != nil {
 		return e
 	}
 	return c.SendStatus(204)

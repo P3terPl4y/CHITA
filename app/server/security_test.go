@@ -1,12 +1,16 @@
 package server_test
 
 import (
+	"fmt"
+	"github.com/gofiber/fiber/v3"
 	"goravel/app/server"
 	"goravel/app/services"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSessionAndSecurityHeaders(t *testing.T) {
@@ -56,5 +60,49 @@ func TestSessionAndSecurityHeaders(t *testing.T) {
 			t.Fatal("CSRF missing accepted", res.StatusCode)
 		}
 		tr.Close()
+	}
+}
+
+// Cloudflare appends the real visitor to X-Forwarded-For. A client-controlled
+// prefix must not create a different rate-limit bucket for every request.
+func TestForwardedHeadersCannotBypassMapRateLimit(t *testing.T) {
+	remote, _ := services.NewRemote("http://127.0.0.1:9")
+	tracking := services.NewTracking(remote)
+	defer tracking.Close()
+	app := server.New(nil, false, tracking)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	finished := make(chan error, 1)
+	go func() { finished <- app.Listener(listener, fiber.ListenConfig{DisableStartupMessage: true}) }()
+	defer func() {
+		if err := app.Shutdown(); err != nil {
+			t.Error(err)
+		}
+		if err := <-finished; err != nil {
+			t.Error(err)
+		}
+	}()
+	client := &http.Client{Timeout: 3 * time.Second}
+	for i := 0; i < 22; i++ {
+		req, err := http.NewRequest("GET", "http://"+listener.Addr().String()+"/api/maps/reverse?lat=invalid&lng=invalid", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("198.51.100.%d, 203.0.113.10", i+1))
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.Copy(io.Discard, res.Body)
+		res.Body.Close()
+		want := 422
+		if i >= 20 {
+			want = 429
+		}
+		if res.StatusCode != want {
+			t.Fatalf("request %d: got %d want %d; forged prefix bypassed the limiter", i+1, res.StatusCode, want)
+		}
 	}
 }

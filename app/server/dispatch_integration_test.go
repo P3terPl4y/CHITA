@@ -25,6 +25,9 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 		t.Fatal("isolated database required")
 	}
 	bootstrap.Boot()
+	if facades.Config().GetString("telemetry.exporters.otlplog.protocol") != "http/protobuf" {
+		t.Fatal("the incompatible gRPC log exporter must remain disabled")
+	}
 	facades.Config().Add("app.key", "0123456789abcdef0123456789abcdef")
 	if _, e := facades.Orm().Query().Exec("TRUNCATE users RESTART IDENTITY CASCADE"); e != nil {
 		t.Fatal(e)
@@ -241,6 +244,9 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 	lat, lng := 23.11345, -82.3667
 	if _, e := services.SetAvailability(staleActor, services.AvailabilityInput{Enabled: &enabled, Latitude: &lat, Longitude: &lng}, grant.Token); e == nil {
 		t.Fatal("stale session reopened discovery")
+	}
+	if e := services.SaveLocation(staleActor, services.LocationInput{Address: "Cambio con sesión revocada", Latitude: &lat, Longitude: &lng}, grant.Token); e == nil {
+		t.Fatal("stale session changed reference location after logout")
 	}
 	t.Log("Maps, profile locations, voluntary discovery, offer consent/expiry/reservation races and three-delivery rating eligibility passed")
 }

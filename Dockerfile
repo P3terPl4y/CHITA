@@ -1,4 +1,11 @@
-FROM golang:alpine AS builder
+FROM node:22-alpine AS frontend
+WORKDIR /frontend
+COPY react/package.json react/package-lock.json ./
+RUN npm ci
+COPY react/ ./
+RUN npm run build
+
+FROM golang:1.26.8-alpine AS builder
 
 ENV GO111MODULE=on \
     CGO_ENABLED=0
@@ -13,8 +20,8 @@ FROM alpine:latest
 WORKDIR /www
 
 COPY --from=builder /build/main /www/
-COPY --from=builder /build/.env /www/.env
 COPY --from=builder /build/public/ /www/public/
 COPY --from=builder /build/resources/ /www/resources/
+COPY --from=frontend /frontend/dist/ /www/react/dist/
 
 ENTRYPOINT ["/www/main"]

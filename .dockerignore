@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+!.env.example
+storage
+artisan
+react/node_modules
+react/test-results
+react/playwright-report

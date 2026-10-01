@@ -38,7 +38,10 @@ export function Map({
         .bindTooltip(i ? "Entrega" : "Recogida"),
     );
     m.fitBounds(L.latLngBounds(points).pad(0.25), { maxZoom: 15 });
+    const resize = new ResizeObserver(() => m.invalidateSize({ pan: false }));
+    resize.observe(el.current);
     return () => {
+      resize.disconnect();
       m.remove();
       map.current = null;
       marker.current = null;
@@ -67,11 +70,14 @@ export function Map({
     }
   }, [position]);
   return (
-    <div
-      ref={el}
-      className="map"
-      aria-label="Mapa de recogida, entrega y última posición disponible"
-    />
+    <div className="map-frame">
+      <div
+        ref={el}
+        className="map"
+        role="region"
+        aria-label="Mapa de recogida, entrega y última posición disponible"
+      />
+    </div>
   );
 }
 
@@ -142,14 +148,18 @@ export function PointMap({
         ).pad(0.2),
         { maxZoom: 15 },
       );
-    const resize = new ResizeObserver(() => m.invalidateSize());
+    const resize = new ResizeObserver(() => m.invalidateSize({ pan: false }));
     resize.observe(el.current);
     return () => {
       resize.disconnect();
       m.remove();
     };
   }, [key]);
-  return <div ref={el} className="map" role="region" aria-label={label} />;
+  return (
+    <div className="map-frame">
+      <div ref={el} className="map" role="region" aria-label={label} />
+    </div>
+  );
 }
 
 export function LocationPicker({
@@ -170,7 +180,7 @@ export function LocationPicker({
   addressName?: string;
   compact?: boolean;
   disabled?: boolean;
-  onPick?: () => void;
+  onPick?: (point: { latitude: number; longitude: number }) => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
@@ -236,7 +246,10 @@ export function LocationPicker({
     }
     async function pick(a: number, b: number) {
       if (!valid(a, b) || callbacks.current.disabled) return;
-      callbacks.current.onPick?.();
+      callbacks.current.onPick?.({
+        latitude: Number(a.toFixed(7)),
+        longitude: Number(b.toFixed(7)),
+      });
       const current = ++generation;
       abort?.abort();
       abort = new AbortController();
@@ -326,7 +339,11 @@ export function LocationPicker({
     );
   }
   return (
-    <div className="location-picker">
+    <div
+      className={
+        "location-picker" + (compact ? " location-picker--compact" : "")
+      }
+    >
       <div className="actions">
         {!compact && (
           <button
@@ -364,17 +381,19 @@ export function LocationPicker({
           <p className="muted" role="status" aria-live="polite">
             {message}
           </p>
-          <div
-            ref={el}
-            className={"map" + (disabled ? " map-saving" : "")}
-            role="region"
-            aria-label={
-              prefix
-                ? `Elegir dirección de ${prefix === "pickup" ? "recogida" : "entrega"}`
-                : "Elegir dirección del perfil"
-            }
-            aria-busy={busy}
-          />
+          <div className="map-frame">
+            <div
+              ref={el}
+              className={"map" + (disabled ? " map-saving" : "")}
+              role="region"
+              aria-label={
+                prefix
+                  ? `Elegir dirección de ${prefix === "pickup" ? "recogida" : "entrega"}`
+                  : "Elegir dirección del perfil"
+              }
+              aria-busy={busy}
+            />
+          </div>
           <small className="muted">
             Dirección aproximada con datos de OpenStreetMap. Al elegir un punto,
             sus coordenadas se consultan al proveedor de direcciones; no se

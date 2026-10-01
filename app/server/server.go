@@ -18,7 +18,7 @@ import (
 )
 
 func New(storage fiber.Storage, production bool, t *services.Tracking, geocoders ...*services.Geocoder) *fiber.App {
-	app := fiber.New(fiber.Config{TrustProxy: true, ProxyHeader: fiber.HeaderXForwardedFor, TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true}, BodyLimit: 32 * 1024, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, ErrorHandler: func(c fiber.Ctx, e error) error {
+	app := fiber.New(fiber.Config{TrustProxy: true, EnableIPValidation: true, ProxyHeader: fiber.HeaderXForwardedFor, TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true}, BodyLimit: 32 * 1024, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, ErrorHandler: func(c fiber.Ctx, e error) error {
 		code := 500
 		msg := "No se pudo completar la operación"
 		var p *services.Problem

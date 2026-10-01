@@ -15,7 +15,7 @@ type LocationInput struct {
 	Longitude *float64 `json:"longitude"`
 }
 
-func SaveLocation(u *models.User, r LocationInput) error {
+func SaveLocation(u *models.User, r LocationInput, grants ...string) error {
 	if u.Role != "company" && u.Role != "courier" {
 		return Fail(403, "Esta cuenta no tiene un perfil de ubicación")
 	}
@@ -29,6 +29,11 @@ func SaveLocation(u *models.User, r LocationInput) error {
 	return facades.Orm().Transaction(func(tx orm.Query) error {
 		if e := activeUser(tx, u.ID, u.Role); e != nil {
 			return e
+		}
+		if len(grants) > 0 {
+			if e := LockGrant(tx, u.ID, grants[0]); e != nil {
+				return e
+			}
 		}
 		fields := map[string]any{"address": address, "latitude": *r.Latitude, "longitude": *r.Longitude}
 		if u.Role == "company" {

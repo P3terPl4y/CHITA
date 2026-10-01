@@ -332,10 +332,24 @@ nav {
   font-size: 0.75rem;
   color: var(--muted);
 }
-.map {
-  height: clamp(14rem, 32vw, 22rem);
+.map-frame {
+  position: relative;
+  isolation: isolate;
+  contain: layout paint;
+  overflow: hidden;
+  min-width: 0;
   width: 100%;
-  border-radius: 0.75rem;
+  max-width: 100%;
+  height: clamp(14rem, 32vw, 22rem);
+  border-radius: .75rem;
+}
+.map-frame > .map {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
   z-index: 0;
 }
 .tracking {
@@ -787,7 +801,10 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
 @media (max-width: 48rem) { .admin-record { flex-direction: column; align-items: stretch; } .admin-record .actions { max-width: none; } .admin-panel .heading { flex-wrap: wrap; } }
 
 .location-picker { min-width: 0; margin-block: 1rem; }
-.location-picker .map, .profile-location .map { margin-block: .75rem; }
+.location-picker .map-frame, .profile-location .map-frame { margin-block: .75rem; }
+.profile-location, .workspace > *, .fields > * { min-width: 0; max-width: 100%; }
+.location-picker--compact .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block-start: 0; }
+.location-picker--compact .actions > button { flex: 1 1 12rem; }
 .availability-strip { display: flex; align-items: center; gap: 1rem; justify-content: space-between; padding: 1rem; margin-block: 1rem; border: .0625rem solid var(--border); border-radius: 1rem; background: var(--surface); }
 .availability-strip > div { flex: 1; min-width: 0; }
 .availability-strip p { margin-block: .4rem; }
@@ -822,7 +839,7 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
 .location-heading h3 { font-size: 1.5rem; margin: 0; }
 .location-heading p { margin-block: .4rem 0; }
 .step-token { font-size: 1.7rem; color: var(--brand); }
-.account-map-panel .map { height: clamp(18rem, 45vh, 30rem); border: .125rem solid var(--input-border); }
+.account-map-panel .map-frame { height: clamp(16rem, 38dvh, 25rem); border: .125rem solid var(--input-border); }
 .location-savebar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-block-start: 1.25rem; padding-block-start: 1rem; border-block-start: .0625rem solid var(--border); }
 .location-savebar .actions { margin: 0; }
 .map-saving { pointer-events: none; opacity: .7; }

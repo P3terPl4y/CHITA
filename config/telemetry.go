@@ -161,7 +161,7 @@ func init() {
 				"excluded_paths":   []string{}, // e.g., ["/health", "/metrics"]
 				"excluded_methods": []string{}, // e.g., ["OPTIONS", "HEAD"]
 			},
-			
+
 			// HTTP Client Instrumentation
 			//
 			// Configures instrumentation for outgoing HTTP requests made through the
@@ -174,14 +174,14 @@ func init() {
 			"http_client": map[string]any{
 				"enabled": config.Env("OTEL_HTTP_CLIENT_ENABLED", true),
 			},
-			
+
 			// gRPC Server Instrumentation
 			//
 			// Configures the instrumentation for incoming gRPC requests to your server.
 			"grpc_server": map[string]any{
 				"enabled": config.Env("OTEL_GRPC_SERVER_ENABLED", true),
 			},
-			
+
 			// gRPC Client Instrumentation
 			//
 			// Configures the instrumentation for outgoing gRPC calls made by your application.
@@ -298,8 +298,10 @@ func init() {
 				"driver":   "otlp",
 				"endpoint": config.Env("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "localhost:4318"),
 
-				// Protocol: "http/protobuf" or "grpc".
-				"protocol": config.Env("OTEL_EXPORTER_OTLP_LOGS_PROTOCOL", "http/protobuf"),
+				// Goravel 1.18 requires the pre-0.21 log API. Its gRPC exporter
+				// ignores certificate environment variables (GO-2026-6508).
+				// Keep log export on HTTP until Goravel supports the fixed API.
+				"protocol": "http/protobuf",
 
 				// Set to false to require TLS/SSL.
 				"insecure": config.Env("OTEL_EXPORTER_OTLP_LOGS_INSECURE", true),

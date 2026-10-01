@@ -9,6 +9,10 @@ export function ProfileLocation({
   profile: Profile;
   saved: () => Promise<void>;
 }) {
+  const [point, setPoint] = useState({
+    latitude: profile.latitude,
+    longitude: profile.longitude,
+  });
   const [busy, setBusy] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -64,17 +68,21 @@ export function ProfileLocation({
         </div>
       </div>
       <form key={revision} onSubmit={submit}>
-        <input type="hidden" name="latitude" defaultValue={profile.latitude} />
+        <input type="hidden" name="latitude" value={point.latitude} readOnly />
         <input
           type="hidden"
           name="longitude"
-          defaultValue={profile.longitude}
+          value={point.longitude}
+          readOnly
         />
         <LocationPicker
           center={[profile.latitude, profile.longitude]}
           compact
           disabled={busy}
-          onPick={changed}
+          onPick={(selected) => {
+            setPoint(selected);
+            changed();
+          }}
           onBusyChange={setResolving}
         />
         <label>
@@ -117,6 +125,10 @@ export function ProfileLocation({
                 type="button"
                 disabled={busy}
                 onClick={() => {
+                  setPoint({
+                    latitude: profile.latitude,
+                    longitude: profile.longitude,
+                  });
                   setRevision((r) => r + 1);
                   setDirty(false);
                   setError("");

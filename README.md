@@ -37,7 +37,7 @@ La landing está en `/`, el acceso en `/entrar` y el registro en `/registro`, co
 
 ## Ejecutar
 
-Requisitos: Go 1.26, Node compatible con Vite 8, PostgreSQL, Redis y HALCON accesible por su API y WebSocket.
+Requisitos: Go 1.26.8 o posterior, Node compatible con Vite 8, PostgreSQL, Redis y HALCON accesible por su API y WebSocket.
 
 ```bash
 cp .env.example .env
@@ -166,3 +166,11 @@ Las empresas pueden buscar repartidores disponibles en un radio máximo de 50 km
 Una empresa sólo puede calificar a un repartidor después de tres entregas completadas y confirmadas por esa misma empresa. Los trabajos aceptados, cancelados o pendientes de confirmación no cuentan. La puntuación admite de una a cinco estrellas y un comentario; cada empresa tiene una calificación por repartidor, que puede actualizar sin aumentar artificialmente el promedio. El historial archivado conserva las entregas confirmadas.
 
 `app/server/dispatch_integration_test.go` comprueba permisos, caducidad, consentimiento, reservas simultáneas y calificaciones. `react/e2e/location_dispatch.spec.ts` prueba mapas, respuestas atrasadas, ambos temas y pantallas móviles; su flujo real de tres entregas requiere `CHITA_REAL_DISPATCH=1` y el servidor aislado en 3340. No habilites pruebas reales sobre producción.
+
+### Revisión de mapas y pruebas en Firefox
+
+El diseño y las reglas del sistema están descritos en [DISENO_IMPLEMENTACION_CHITA.md](DISENO_IMPLEMENTACION_CHITA.md). El editor mantiene las coordenadas seleccionadas en estado de React y las persiste únicamente al pulsar Guardar. Todos los mapas utilizan un marco de contención para sus capas y observan cambios de tamaño.
+
+Para reproducir la suite en Firefox, instalar previamente su navegador de Playwright (`cd react` y `npx playwright install firefox`) y ejecutar `CHITA_BROWSER=firefox npm run test:e2e`. Sin indicadores adicionales, los escenarios de escritura real de admin, propuestas y perfiles se omiten; los flujos antiguos de trabajos de `workflow.spec.ts` sí requieren el servidor de pruebas. Nunca ejecutar la suite completa contra producción. Para la verificación real local, añadir `CHITA_ADMIN_BROWSER=1 CHITA_REAL_DISPATCH=1` con CHITA aislado en 3340 y el administrador ficticio descrito antes.
+
+`react/e2e/map_regression.spec.ts` prueba zoom, desplazamiento, redimensionado, contención y guardado/recarga. `CHITA_BROWSER` sólo cambia el motor de pruebas, no el comportamiento de la aplicación.

@@ -64,6 +64,8 @@ for (const role of ["company", "courier"]) {
           "longitude",
         ]);
         expect(Number.isFinite(value.latitude)).toBe(true);
+        expect(value.latitude).not.toBe(23.1);
+        expect(value.longitude).not.toBe(-82.3);
         expect(Number.isFinite(value.longitude)).toBe(true);
         profile = value;
         saved++;
