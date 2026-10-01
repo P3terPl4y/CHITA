@@ -1,8 +1,10 @@
 package models
+
 import (
-"github.com/goravel/framework/database/orm"
+	"github.com/goravel/framework/database/orm"
 	"time"
-	)
+)
+
 type Company struct {
 	orm.Model
 	orm.SoftDeletes
@@ -11,7 +13,10 @@ type Company struct {
 	OwnerUserID      uint       `gorm:"index;not null" json:"owner_user_id"`
 	LegalName        string     `gorm:"type:varchar(200);not null" json:"legal_name"`
 	TradeName        string     `gorm:"type:varchar(200);not null" json:"trade_name"`
-	TaxID            string     `gorm:"type:varchar(50);uniqueIndex:idx_companies_taxid_active,where:deleted_at IS NULL" json:"tax_id,omitempty"`
+	TaxID            *string    `gorm:"type:varchar(50);uniqueIndex:idx_companies_taxid_active,where:deleted_at IS NULL" json:"tax_id,omitempty"`
+	Address          string     `json:"address"`
+	Latitude         float64    `json:"latitude"`
+	Longitude        float64    `json:"longitude"`
 	Email            string     `gorm:"type:citext;not null" json:"email"`
 	Phone            string     `gorm:"type:varchar(20);not null" json:"phone"`
 	LogoURL          string     `gorm:"type:text" json:"logo_url,omitempty"`

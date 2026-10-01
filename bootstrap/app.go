@@ -21,6 +21,9 @@ func Boot() contractsfoundation.Application {
 			facades.Schema().Extend(schema.Extension{
 				Models: []any{
 					&models.User{},
+					&models.CourierProfile{},
+					&models.Notification{},
+					&models.HalconAccount{},
 					&models.UserAddress{},
 					&models.Company{},
 					&models.CompanyMember{},

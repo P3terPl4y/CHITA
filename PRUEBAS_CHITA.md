@@ -1,0 +1,43 @@
+# Verificación de CHITA — 1 de octubre de 2026
+
+Esta es una primera versión funcional, comprobada en el entorno de desarrollo. Los resultados describen los escenarios ejecutados; no son una garantía de ausencia de fallos ni una certificación de producción.
+
+| Comprobación | Resultado |
+|---|---|
+| `go test ./...` | Correcto; la integración optativa se omite sin su variable explícita |
+| `go vet ./...` | Correcto |
+| Pruebas reales con `go test -race ./app/server ./app/services` | Correcto, sin carreras detectadas en los casos ejecutados |
+| Flujo y seguridad HTTP | 106 peticiones comprobadas, cuatro cuentas CHITA, dos repartidores compitiendo por una asignación |
+| Contrato real con HALCON aislado | Registro de cuenta de prueba, login, identidad personal, WebSocket, persistencia de coordenadas y desconexión correctos |
+| Vinculación CHITA–HALCON | Sesión cifrada, identidad no compartida entre repartidores, envío y consulta de coordenadas autorizados, desvinculación y bloqueo tras reporte comprobados |
+| Redis | Claves con prefijo propio, lectura/borrado contextual y prohibición de reset global comprobados con Redis real |
+| PostgreSQL | Doce migraciones aplicadas, revertidas y reaplicadas en `chita_validation`; posteriormente aplicadas a la base local de CHITA previamente vacía |
+| React | Pruebas de tarifas, estados y renovación del GPS; build TypeScript/Vite correcto |
+| Chromium / Playwright | Dos escenarios completos aprobados: formularios accesibles y recorrido empresa–repartidor |
+| Responsive | Sin desbordamiento horizontal en las vistas comprobadas a 320, 390, 768 y 1440 píxeles |
+| Accesibilidad automática | Sin incidencias de axe en registro y detalles de entrega comprobados |
+| Arranque local | Servicio `chita.service` activo; interfaz y sesión responden HTTP 200 en `http://localhost:3330` |
+
+## Escenarios de negocio y acceso
+
+Se comprobó que un repartidor no puede publicar trabajos; una empresa ajena no puede consultar ni cancelar publicaciones de otra; un repartidor no ve trabajos de una empresa hasta aceptar la invitación; tampoco puede aceptar una invitación ajena ni modificar una entrega no asignada a él.
+
+Dos repartidores aceptaron simultáneamente el mismo trabajo: sólo uno obtuvo la asignación. Una segunda aceptación, los saltos de estado, la confirmación prematura, la cancelación después de recoger y la aceptación vencida fueron rechazados.
+
+Retirar a un repartidor de la red impidió consultar publicaciones nuevas y mantuvo su acceso a trabajos ya aceptados. Se probaron reporte, solicitud de revisión con motivo, nuevo reporte y confirmación. Los eventos, avisos y fechas de confirmación/entrega quedaron persistidos.
+
+Se rechazaron peticiones sin CSRF válido, campos de asignación enviados por el cliente, tarifas inválidas, coordenadas fuera de rango, lectura de avisos ajenos y solicitudes de seguimiento de terceros. Los DTO de trabajos excluyen hashes y sesiones cifradas. Se verificaron cookies HttpOnly, SameSite y Secure en modo producción, cabeceras de seguridad y respuestas 429 después del límite de autenticación.
+
+La vinculación se hizo contra HALCON en 3331 y bases de datos de pruebas separadas en PostgreSQL 55439. CHITA envió un punto mediante su API; la empresa recibió ese mismo punto desde la persistencia real de HALCON. No se sustituyó la integración por un simulador de HALCON. Las imágenes de mapa en los tests repetidos de navegador sí son fixtures: permiten verificar el selector y la carga sin descargar mosaicos comunitarios repetidamente.
+
+## Límites de la verificación
+
+No se ejecutó una carga de 1000 usuarios en CHITA. Esa prueba correspondió al trabajo anterior de HALCON y no se reutiliza como evidencia de este sistema. No se probaron dispositivos móviles físicos, GPS en segundo plano ni un despliegue público de CHITA. La prueba automática de accesibilidad cubre las vistas indicadas, no sustituye pruebas con lectores de pantalla o personas usuarias.
+
+La versión móvil actual comparte el cliente React adaptable. Las sesiones vinculadas de HALCON duran como máximo 25 minutos y deben renovarse. El broker requiere una sola instancia de CHITA. Pagos, push, verificación de correo y aplicaciones nativas quedan fuera de esta versión.
+
+El rollback completo del esquema se verificó en una base descartable. El rollback aislado de la migración de flujo conserva la mayor precisión de coordenadas y la posibilidad de tax_id nulo para evitar redondear coordenadas o inventar identificadores fiscales.
+
+Los comandos y las precauciones para reproducir las pruebas están en [README.md](README.md). Las pruebas de integración truncan usuarios únicamente cuando se proporciona el indicador explícito y una base cuyo nombre termina en `_validation`.
+
+Se aprobaron 17 pruebas de React en total. Cinco comprueban el GPS: caché reciente, renovación sin movimiento, primera lectura, error de permisos/señal y rechazo de una posición antigua. La integración real también verifica que un halcón sin ninguna posición previa no aparezca artificialmente en 0,0.

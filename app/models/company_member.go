@@ -1,7 +1,8 @@
 package models
+
 import (
-"github.com/goravel/framework/database/orm"
-"time"
+	"github.com/goravel/framework/database/orm"
+	"time"
 )
 
 type CompanyMember struct {
@@ -12,7 +13,9 @@ type CompanyMember struct {
 	RoleInCompany   string     `gorm:"type:varchar(30);not null;default:'viewer'" json:"role_in_company"`
 	InvitedByUserID *uint      `json:"invited_by_user_id,omitempty"`
 	AcceptedAt      *time.Time `json:"accepted_at,omitempty"`
+	Status          string     `json:"status"`
+	Courier         *User      `gorm:"foreignKey:UserID" json:"courier,omitempty"`
+	Company         *Company   `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 func (m *CompanyMember) TableName() string { return "company_members" }
-

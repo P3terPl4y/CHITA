@@ -1,100 +1,118 @@
-<div align="center">
-
-<img src="https://www.goravel.dev/logo.png?v=1.14.x" width="300" alt="Logo">
-
-[![Doc](https://pkg.go.dev/badge/github.com/goravel/framework)](https://pkg.go.dev/github.com/goravel/framework)
-[![Go](https://img.shields.io/github/go-mod/go-version/goravel/framework)](https://go.dev/)
-[![Release](https://img.shields.io/github/release/goravel/framework.svg)](https://github.com/goravel/framework/releases)
-[![Test](https://github.com/goravel/framework/actions/workflows/test.yml/badge.svg)](https://github.com/goravel/framework/actions)
-[![Report Card](https://goreportcard.com/badge/github.com/goravel/framework)](https://goreportcard.com/report/github.com/goravel/framework)
-[![Codecov](https://codecov.io/gh/goravel/framework/branch/master/graph/badge.svg)](https://codecov.io/gh/goravel/framework)
-![License](https://img.shields.io/github/license/goravel/framework)
-
-</div>
-
-English | [中文](./README_zh.md)
-
-## About Goravel
-
-Goravel is a full-featured, scalable web application framework that provides a starting scaffold to help Gophers quickly build their applications.
-
-The framework style is consistent with [Laravel](https://laravel.com/), so PHP developers don’t need to learn a new framework and can still enjoy playing around with Golang, in tribute to Laravel!
-
-We welcome stars, PRs, and issues!
-
-## Documentation
-
-Online documentation [https://www.goravel.dev](https://www.goravel.dev)
-
-Example [https://github.com/goravel/example](https://github.com/goravel/example)
-
-> To optimize the documentation, please submit a PR to the documentation
-> repository [https://github.com/goravel/docs](https://github.com/goravel/docs)
-
-## Main Features
-
-| Module Name | Description |
-|-------------|-------------|
-| [Artisan Console](https://www.goravel.dev/digging-deeper/artisan-console.html) | CLI command-line interface for application management and automation |
-| [Authentication](https://www.goravel.dev/security/authentication.html) | User identity verification with JWT and Session drivers |
-| [Authorization](https://www.goravel.dev/security/authorization.html) | Permission-based access control using policies and gates |
-| [Cache](https://www.goravel.dev/digging-deeper/cache.html) | Store and retrieve data using memory, Redis, or custom drivers |
-| [Carbon](https://www.goravel.dev/digging-deeper/helpers.html) | Helper functions for date and time manipulation |
-| [Config](https://www.goravel.dev/getting-started/configuration.html) | Application configuration management from files and environment |
-| [Crypt](https://www.goravel.dev/security/encryption.html) | Secure data encryption and decryption utilities |
-| [DB](https://www.goravel.dev/database/getting-started.html) | Database query builder |
-| [Event](https://www.goravel.dev/digging-deeper/event.html) | Application event dispatching and listening system |
-| [Factory](https://www.goravel.dev/orm/factories.html) | Generate fake model data for testing purposes |
-| [FileStorage](https://www.goravel.dev/digging-deeper/filesystem.html) | File upload, download, and storage across multiple drivers |
-| [Grpc](https://www.goravel.dev/the-basics/grpc.html) | High-performance gRPC server and client implementation |
-| [Hash](https://www.goravel.dev/security/hashing.html) | Secure password hashing |
-| [Http](https://www.goravel.dev/the-basics/routing.html) | HTTP routing, controllers, and middleware management |
-| [Http Client](https://www.goravel.dev/digging-deeper/http-client.html) | Make HTTP requests to external APIs and services |
-| [Localization](https://www.goravel.dev/digging-deeper/localization.html) | Multi-language translation and locale management |
-| [Logger](https://www.goravel.dev/the-basics/logging.html) | Application logging to files, console, or external services |
-| [Mail](https://www.goravel.dev/digging-deeper/mail.html) | Send emails via SMTP or queue-based delivery |
-| [Mock](https://www.goravel.dev/testing/mock.html) | Create test mocks for facades and dependencies |
-| [Migrate](https://www.goravel.dev/database/migrations.html) | Version control for database schema changes |
-| [Orm](https://www.goravel.dev/orm/getting-started.html) | Elegant Orm implementation for database operations |
-| [Package Development](https://www.goravel.dev/digging-deeper/package-development.html) | Build reusable packages to extend framework functionality |
-| [Process](https://www.goravel.dev/digging-deeper/process.html) | An expressive and elegant API around Go's standard os/exec package |
-| [Queue](https://www.goravel.dev/digging-deeper/queues.html) | Defer time-consuming tasks to background job processing |
-| [Seeder](https://www.goravel.dev/database/seeding.html) | Populate database tables with test or initial data |
-| [Session](https://www.goravel.dev/the-basics/session.html) | Manage user session data across HTTP requests |
-| [Task Scheduling](https://www.goravel.dev/digging-deeper/task-scheduling.html) | Schedule recurring tasks using cron-like expressions |
-| [Testing](https://www.goravel.dev/testing/getting-started.html) | HTTP testing, mocking, and assertion utilities |
-| [Validation](https://www.goravel.dev/the-basics/validation.html) | Validate incoming request data using rules |
-| [View](https://www.goravel.dev/the-basics/views.html) | Template rendering engine for HTML responses |
-
-## Compare With Laravel
-
-[For Detail](https://www.goravel.dev/prologue/compare-with-laravel.html)
-
-## Roadmap
-
-[For Detail](https://github.com/goravel/goravel/issues?q=is%3Aissue+is%3Aopen)
-
-## Excellent Extend Packages
-
-[For Detail](https://www.goravel.dev/getting-started/packages.html)
-
-## Contributors
-
-This project exists thanks to all the people who contribute, to participate in the contribution, please see [Contribution Guide](https://www.goravel.dev/prologue/contributions.html).
-
-## Sponsor
-
-Better development of the project is inseparable from your support, reward us by [Open Collective](https://opencollective.com/goravel).
-
-<p align="left"><img src="https://www.goravel.dev/reward.png" width="200"></p>
-
-## Group
-
-Welcome more discussion in Discord.
-
-[https://discord.gg/cFc5csczzS](https://discord.gg/cFc5csczzS)
-
-## License
-
-The Goravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 # CHITA
+
+Primera versión funcional para coordinar entregas entre empresas y repartidores. Proyecto independiente de HALCON: backend Go 1.26, Goravel 1.18 y Fiber v3; cliente React 19 y TypeScript adaptable a escritorio y móvil.
+
+## Qué permite
+
+- Crear una cuenta de empresa o repartidor con dirección y coordenadas. Cada rol tiene su propio perfil; el rol no puede cambiarse desde una petición del cliente.
+- La empresa invita por correo a un repartidor registrado. El repartidor acepta antes de ver sus publicaciones.
+- Publicar trabajos con recogida, entrega, coordenadas, ventanas horarias y tarifa en centavos (USD, CUP o EUR).
+- Un solo repartidor puede aceptar un trabajo. La asignación y los cambios de estado se protegen mediante transacciones y bloqueos de filas.
+- Confirmar recogida, llegada y aviso de entrega. La empresa confirma el resultado o solicita revisión indicando el motivo.
+- Consultar avisos dentro de CHITA. Retirar un repartidor de la red no elimina su acceso a trabajos ya aceptados.
+- Compartir la ubicación mediante una cuenta personal de HALCON durante un trabajo activo. La empresa consulta la última posición autorizada, normalmente cada 2,5 segundos desde la interfaz.
+
+```mermaid
+flowchart LR
+  P[Publicado] --> A[Aceptado]
+  A --> R[Recogido]
+  R --> L[En el punto de entrega]
+  L --> N[Entrega notificada]
+  N -->|Empresa confirma| C[Completado]
+  N -->|Empresa solicita revisión| L
+  P --> X[Cancelado]
+  A --> X
+```
+
+La cancelación requiere motivo y sólo se permite antes de recoger. El seguimiento de CHITA está disponible en `accepted`, `picked_up` y `arrived`; se corta al notificar la entrega. Confirmación y coordenadas no constituyen una prueba física de entrega.
+
+## Ejecutar
+
+Requisitos: Go 1.26, Node compatible con Vite 8, PostgreSQL, Redis y HALCON accesible por su API y WebSocket.
+
+```bash
+cp .env.example .env
+# Completar las credenciales de una base de datos exclusiva de CHITA.
+go run . artisan key:generate
+go run . artisan migrate
+cd react
+npm ci
+npm run build
+cd ..
+go run .
+```
+
+Abrir `http://localhost:3330`. `APP_PORT` y `APP_HOST` se respetan. La aplicación sirve `react/dist` y la API en el mismo origen. Para desarrollo del cliente: `cd react && npm run dev`, puerto 5175, proxy de API al puerto 3330.
+
+Usar `APP_ENV=production` y HTTPS para publicación: las cookies cambian a `__Host-chita-session` y `__Host-chita-csrf`, son Secure y HttpOnly. El servidor sólo confía en cabeceras de proxy procedentes de loopback; un proxy de publicación debe sobrescribir las cabeceras reenviadas. No habilitar CORS indiscriminadamente ni reutilizar credenciales o tablas de HALCON.
+
+## Integración con HALCON
+
+`HALCON_URL=http://127.0.0.1:3300` permite la comunicación interna cuando ambos servicios están en el mismo servidor. HTTP se acepta exclusivamente para loopback; para otro host se exige HTTPS. No se siguen redirecciones. Una URL pública protegida por un intermediario puede bloquear clientes WebSocket de servidor: preferir una ruta interna confiable.
+
+El repartidor vincula su cuenta personal existente de HALCON desde **Mi cuenta**. CHITA:
+
+1. Obtiene un token CSRF e inicia una sesión mediante las API oficiales existentes de HALCON.
+2. Comprueba que la cuenta tenga rol `user` y halcón personal. No acepta cuentas de administración o moderación.
+3. Guarda la sesión remota cifrada con la APP_KEY de CHITA y la asociación de identificadores. Nunca guarda la contraseña ni supone que los IDs de ambos sistemas coincidan. Una identidad de HALCON sólo puede vincularse a un repartidor de CHITA.
+4. Mantiene una conexión WebSocket para enviar posiciones y filtra la respuesta de seguimiento para devolver exclusivamente el halcón personal vinculado.
+5. Verifica en cada consulta que quien solicita la posición sea la empresa del trabajo o el repartidor asignado, y que el trabajo siga activo.
+
+La sesión vinculada tiene un límite conservador de 25 minutos y puede renovarse desde la interfaz. La vinculación conserva el destinatario y los permisos de moderación de HALCON. Compartir desde CHITA puede sustituir otra conexión productora abierta con esa misma cuenta de HALCON. El broker cierra conexiones inactivas después de aproximadamente 45–55 segundos.
+
+Redis usa claves `chita:session:` y cookies propias. Su operación de borrado global está deshabilitada. Las autorizaciones de sesión persistidas hacen definitivo el cierre de sesión incluso ante peticiones simultáneas que intenten guardar una copia antigua de la sesión.
+
+Esta versión usa un broker de seguimiento dentro del proceso: ejecutar **una instancia** de CHITA. Distribuirlo entre varias instancias requerirá coordinar productores y desconexiones mediante un broker compartido.
+
+## Web y móvil
+
+El mismo cliente React funciona en ambos tamaños y tiene un manifiesto web para acceso desde el dispositivo. Los formularios permiten usar el GPS como referencia o seleccionar puntos en el mapa. Debe comprobarse que la dirección escrita corresponda a las coordenadas.
+
+Es una versión **web móvil**, no un binario nativo Android/iOS. El navegador puede pausar el GPS al cambiar de aplicación o bloquear la pantalla. Para seguimiento se requieren permisos, contexto seguro (HTTPS salvo localhost), conectividad y la página abierta. No incluye modo sin conexión, pagos, geocodificación automática, notificaciones push, verificación de correo ni recuperación de contraseña. Estas funciones no se anuncian como disponibles.
+
+Los mapas cargan imágenes de OpenStreetMap y requieren conexión con ese proveedor. Si los mapas no están disponibles, las direcciones y horarios siguen visibles. Para un despliegue de volumen hay que seleccionar un proveedor de mapas adecuado y revisar su política de uso y privacidad.
+
+## Pruebas reproducibles
+
+```bash
+go test ./...
+go vet ./...
+cd react
+npm test
+npm run build
+cd ..
+```
+
+Las pruebas HTTP reales son optativas y destructivas **sólo para su base de datos de pruebas**: requieren `CHITA_INTEGRATION=1` y un nombre de base de datos terminado en `_validation`. Truncan los usuarios de esa base; nunca usar una base con datos que deban conservarse.
+
+```bash
+# Preparar previamente chita_validation y aplicar sus migraciones.
+CHITA_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=55439 \
+DB_DATABASE=chita_validation DB_USERNAME=peter DB_PASSWORD='' \
+go test -race ./app/server -v -count=1
+```
+
+Para incluir el contrato real de HALCON, iniciar una instancia de HALCON en `http://127.0.0.1:3331` con su propia base de datos de pruebas ya migrada y añadir `CHITA_HALCON_URL=http://127.0.0.1:3331` al comando. Esto crea cuentas de prueba exclusivamente en esa instancia.
+
+```bash
+CHITA_HALCON_URL=http://127.0.0.1:3331 go test ./app/services -v -count=1
+# Con CHITA de pruebas escuchando en 3340 y el frontend construido:
+cd react
+npx playwright test
+```
+
+El ejecutable de Chromium en `react/playwright.config.ts` corresponde al entorno de desarrollo actual. Cambiarlo o usar `CHITA_CHROME_PATH` para otra instalación. Véase [PRUEBAS_CHITA.md](PRUEBAS_CHITA.md) para los resultados y [PLAN_CHITA.md](PLAN_CHITA.md) para las decisiones.
+
+## Estructura
+
+- `app/services`: cuentas, red, reglas de publicación, transiciones e integración HALCON.
+- `app/http/controllers/delivery_controller.go`: API Fiber, autenticación y DTO que excluyen datos privados.
+- `app/server`: sesiones, cabeceras, CSRF y pruebas de seguridad e integración.
+- `app/models` y `database/migrations`: modelos y esquema Goravel. Los modelos heredados de reseñas, solicitudes e ítems todavía no tienen funcionalidades públicas en esta versión.
+- `react`: cliente React compartido para escritorio y móvil, mapa, formularios y pruebas.
+
+Referencias utilizadas: [ORM Goravel](https://www.goravel.dev/orm/getting-started.html), [sesiones Fiber v3](https://docs.gofiber.io/next/middleware/session/), [CSRF Fiber v3](https://docs.gofiber.io/next/middleware/csrf/), [efectos React](https://react.dev/reference/react/useEffect) y el código de las versiones fijadas en `go.mod` y `react/package-lock.json`.
+
+Los mapas usan la URL oficial y una política de referencia que envía sólo el origen al proveedor. Se respeta la caché normal del navegador. Las pruebas repetidas de navegador usan imágenes de mapa controladas para no descargar mosaicos del servicio comunitario en cada ejecución. Política: https://operations.osmfoundation.org/policies/tiles/.
+
+En este entorno se instaló un servicio de usuario `chita.service` para arranque **local** en 127.0.0.1:3330. Su plantilla está en `deploy/chita.service`. Se administra con `systemctl --user status|restart|stop chita.service`. HALCON continúa en su servicio separado. No hay publicación pública de CHITA configurada en esta entrega.

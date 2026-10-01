@@ -6,3 +6,8 @@
 !.env.example
 storage
 tmp
+
+/react/node_modules/
+/react/dist/
+/react/test-results/
+/react/playwright-report/
