@@ -80,15 +80,24 @@ function Field({
 }
 function App() {
   const [publicPath, setPublicPath] = useState(window.location.pathname);
-  const [rankingOrigin, setRankingOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [rankingOrigin, setRankingOrigin] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [rankingBusy, setRankingBusy] = useState(false);
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [register, setRegister] = useState(window.location.pathname === "/registro"),
-    [role, setRole] = useState(new URLSearchParams(window.location.search).get("rol") === "empresa" ? "company" : "courier"),
+    [register, setRegister] = useState(
+      window.location.pathname === "/registro",
+    ),
+    [role, setRole] = useState(
+      new URLSearchParams(window.location.search).get("rol") === "empresa"
+        ? "company"
+        : "courier",
+    ),
     [tab, setTab] = useState("jobs"),
     [jobs, setJobs] = useState<Job[]>([]),
     [network, setNetwork] = useState<Network[]>([]),
@@ -106,6 +115,7 @@ function App() {
       latitude: number;
       longitude: number;
     } | null>(null);
+  const detailPanel = useRef<HTMLElement>(null);
   const watch = useRef<number | null>(null),
     beat = useRef<ReturnType<typeof setInterval> | null>(null),
     gps = useRef<GeolocationPosition | null>(null),
@@ -116,35 +126,67 @@ function App() {
   function syncPublicRoute() {
     setPublicPath(window.location.pathname);
     setRegister(window.location.pathname === "/registro");
-    setRole(new URLSearchParams(window.location.search).get("rol") === "empresa" ? "company" : "courier");
+    setRole(
+      new URLSearchParams(window.location.search).get("rol") === "empresa"
+        ? "company"
+        : "courier",
+    );
   }
   useEffect(() => {
     window.addEventListener("popstate", syncPublicRoute);
     return () => window.removeEventListener("popstate", syncPublicRoute);
   }, []);
   function navigatePublic(event: MouseEvent<HTMLDivElement>) {
-    if (user || busy || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (
+      user ||
+      busy ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    const anchor =
+      event.target instanceof Element ? event.target.closest("a") : null;
     if (!anchor || anchor.hasAttribute("download") || anchor.target) return;
     const url = new URL(anchor.href);
-    if (url.origin !== window.location.origin || !["/", "/entrar", "/registro"].includes(url.pathname) || url.hash) return;
+    if (
+      url.origin !== window.location.origin ||
+      !["/", "/entrar", "/registro"].includes(url.pathname) ||
+      url.hash
+    )
+      return;
     event.preventDefault();
     window.history.pushState(null, "", url.pathname + url.search);
     syncPublicRoute();
     setError("");
     setNotice("");
     window.scrollTo({ top: 0, behavior: "instant" });
-    requestAnimationFrame(() => document.getElementById("contenido")?.focus({ preventScroll: true }));
+    requestAnimationFrame(() =>
+      document.getElementById("contenido")?.focus({ preventScroll: true }),
+    );
   }
   async function refresh() {
     const version = generation.current;
     const orderVersion = rankingVersion.current;
     const [a, b, n] = await Promise.all([
-      api<{ items: Job[]; total: number }>("/jobs?page=" + page + (rankingOrigin ? `&lat=${rankingOrigin.lat}&lng=${rankingOrigin.lng}` : "")),
+      api<{ items: Job[]; total: number }>(
+        "/jobs?page=" +
+          page +
+          (rankingOrigin
+            ? `&lat=${rankingOrigin.lat}&lng=${rankingOrigin.lng}`
+            : ""),
+      ),
       api<Network[]>("/network"),
       api<Notice[]>("/notifications"),
     ]);
-    if (version !== generation.current || orderVersion !== rankingVersion.current) return;
+    if (
+      version !== generation.current ||
+      orderVersion !== rankingVersion.current
+    )
+      return;
     setJobs(a.items);
     setTotal(a.total);
     setNetwork(b);
@@ -179,23 +221,42 @@ function App() {
       clearInterval(timer);
     };
   }, [user?.id, page, rankingOrigin?.lat, rankingOrigin?.lng]);
-  useEffect(() => { if (user?.role === "admin") setTab("overview"); }, [user?.id]);
+  useEffect(() => {
+    if (user?.role === "admin") setTab("overview");
+  }, [user?.id]);
   function rankNearby() {
     if (rankingBusy) return;
-    if (!navigator.geolocation) { setError("Puedes ordenar con la ubicación de tu perfil; este navegador no ofrece GPS."); return; }
+    if (!navigator.geolocation) {
+      setError(
+        "Puedes ordenar con la ubicación de tu perfil; este navegador no ofrece GPS.",
+      );
+      return;
+    }
     const version = generation.current;
     setRankingBusy(true);
-    navigator.geolocation.getCurrentPosition(point => {
-      if (version !== generation.current) return;
-      setRankingBusy(false);
-      rankingVersion.current++;
-      setRankingOrigin({ lat: point.coords.latitude, lng: point.coords.longitude });
-      setPage(1);
-    }, () => {
-      if (version !== generation.current) return;
-      setRankingBusy(false);
-      if (version === generation.current) setError(rankingOrigin ? "No se pudo obtener tu ubicación. El orden conserva la última ubicación GPS obtenida." : "No se pudo obtener tu ubicación. El orden sigue usando la ubicación de tu perfil.");
-    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 });
+    navigator.geolocation.getCurrentPosition(
+      (point) => {
+        if (version !== generation.current) return;
+        setRankingBusy(false);
+        rankingVersion.current++;
+        setRankingOrigin({
+          lat: point.coords.latitude,
+          lng: point.coords.longitude,
+        });
+        setPage(1);
+      },
+      () => {
+        if (version !== generation.current) return;
+        setRankingBusy(false);
+        if (version === generation.current)
+          setError(
+            rankingOrigin
+              ? "No se pudo obtener tu ubicación. El orden conserva la última ubicación GPS obtenida."
+              : "No se pudo obtener tu ubicación. El orden sigue usando la ubicación de tu perfil.",
+          );
+      },
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 },
+    );
   }
   async function run(fn: () => Promise<void>) {
     if (busy) return;
@@ -332,7 +393,11 @@ function App() {
         body[k] = new Date(String(r[k])).toISOString();
       await api("/jobs", "POST", body);
       setCreating(false);
-      setNotice(body.visibility === "public" ? "Trabajo público publicado" : "Trabajo publicado para tu red");
+      setNotice(
+        body.visibility === "public"
+          ? "Trabajo público publicado"
+          : "Trabajo publicado para tu red",
+      );
       await refresh();
     });
   }
@@ -399,15 +464,37 @@ function App() {
       </main>
     );
   return (
-    <div className="app-shell" onClick={navigatePublic}>
-      <a className="skip-link" href="#contenido">Saltar al contenido</a>
+    <div
+      className={
+        "app-shell" + (user && user.role !== "admin" ? " dashboard-shell" : "")
+      }
+      onClick={navigatePublic}
+    >
+      <a className="skip-link" href="#contenido">
+        Saltar al contenido
+      </a>
       <header className={!user ? "public-header" : ""}>
         <a className="brand" href="/" aria-label="CHITA inicio">
           <img className="platform-logo" src="/chita.svg" alt="CHITA" />
         </a>
         <span className="tagline">Entregas, paso a paso.</span>
-        {user && <Navigation role={user.role} tab={tab} unread={notices.some(n => !n.read_at)} select={setTab} />}
-        {!user && <div className="public-links"><a href="/#como-funciona">Cómo funciona</a><a href="/entrar">Entrar</a><a className="header-cta" href="/registro">Crear cuenta</a></div>}
+        {user && (
+          <Navigation
+            role={user.role}
+            tab={tab}
+            unread={notices.some((n) => !n.read_at)}
+            select={setTab}
+          />
+        )}
+        {!user && (
+          <div className="public-links">
+            <a href="/#como-funciona">Cómo funciona</a>
+            <a href="/entrar">Entrar</a>
+            <a className="header-cta" href="/registro">
+              Crear cuenta
+            </a>
+          </div>
+        )}
         <ThemePicker />
         {user && (
           <div className="account">
@@ -443,7 +530,15 @@ function App() {
           </div>
         )}
       </header>
-      <main id="contenido" tabIndex={-1} className={!user && !["/entrar", "/registro"].includes(publicPath) ? "landing-main" : ""}>
+      <main
+        id="contenido"
+        tabIndex={-1}
+        className={
+          !user && !["/entrar", "/registro"].includes(publicPath)
+            ? "landing-main"
+            : ""
+        }
+      >
         {error && (
           <div className="alert" role="alert">
             {error}
@@ -457,95 +552,172 @@ function App() {
             {notice}
           </div>
         )}
-        {!user ? (!["/entrar", "/registro"].includes(publicPath) ? <Landing /> : (
-          <div className="auth-layout">
-            <div className="auth-intro"><a href="/">← Volver a CHITA</a><p className="eyebrow">TU CUENTA. TU RECORRIDO.</p><h1>{register ? "Conecta. Coordina. Entrega." : "Tu siguiente entrega empieza aquí."}</h1><p>{register ? "Elige tu rol y añade los datos que tu red necesita para coordinar contigo." : "Entra para ver tus trabajos, tu red y las novedades de tus entregas."}</p></div>
-            <section className="panel auth-panel" id="cuenta" tabIndex={-1}>
-              <p className="auth-kicker"><span aria-hidden="true">↗</span> TU SIGUIENTE PASO</p>
-              <div className="switch">
-                <button
-                  className={!register ? "chosen" : ""}
-                  aria-pressed={!register}
-                  disabled={busy}
-                  onClick={() => { window.history.replaceState(null, "", "/entrar"); setRegister(false); setError(""); }}
-                >
-                  Entrar
-                </button>
-                <button
-                  className={register ? "chosen" : ""}
-                  aria-pressed={register}
-                  disabled={busy}
-                  onClick={() => { window.history.replaceState(null, "", "/registro"); setRegister(true); setError(""); }}
-                >
-                  Crear cuenta
-                </button>
+        {!user ? (
+          !["/entrar", "/registro"].includes(publicPath) ? (
+            <Landing />
+          ) : (
+            <div className="auth-layout">
+              <div className="auth-intro">
+                <a href="/">← Volver a CHITA</a>
+                <p className="eyebrow">TU CUENTA. TU RECORRIDO.</p>
+                <h1>
+                  {register
+                    ? "Conecta. Coordina. Entrega."
+                    : "Tu siguiente entrega empieza aquí."}
+                </h1>
+                <p>
+                  {register
+                    ? "Elige tu rol y añade los datos que tu red necesita para coordinar contigo."
+                    : "Entra para ver tus trabajos, tu red y las novedades de tus entregas."}
+                </p>
               </div>
-              <h2>{register ? "Tu cuenta de CHITA" : "Bienvenido de nuevo"}</h2>
-              <form onSubmit={auth} aria-busy={busy}>
-                {register && (
-                  <>
-                    <label>
-                      Quiero usar CHITA como
-                      <select
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                      >
-                        <option value="courier">Repartidor</option>
-                        <option value="company">Empresa</option>
-                      </select>
-                    </label>
-                    <Field name="name" label="Tu nombre" />
-                    <Field name="phone" label="Teléfono" type="tel" />
-                    {role === "company" ? (
-                      <Field name="company_name" label="Nombre de la empresa" />
-                    ) : (
+              <section className="panel auth-panel" id="cuenta" tabIndex={-1}>
+                <p className="auth-kicker">
+                  <span aria-hidden="true">↗</span> TU SIGUIENTE PASO
+                </p>
+                <div className="switch">
+                  <button
+                    className={!register ? "chosen" : ""}
+                    aria-pressed={!register}
+                    disabled={busy}
+                    onClick={() => {
+                      window.history.replaceState(null, "", "/entrar");
+                      setRegister(false);
+                      setError("");
+                    }}
+                  >
+                    Entrar
+                  </button>
+                  <button
+                    className={register ? "chosen" : ""}
+                    aria-pressed={register}
+                    disabled={busy}
+                    onClick={() => {
+                      window.history.replaceState(null, "", "/registro");
+                      setRegister(true);
+                      setError("");
+                    }}
+                  >
+                    Crear cuenta
+                  </button>
+                </div>
+                <h2>
+                  {register ? "Tu cuenta de CHITA" : "Bienvenido de nuevo"}
+                </h2>
+                <form onSubmit={auth} aria-busy={busy}>
+                  {register && (
+                    <>
                       <label>
-                        Medio de transporte
-                        <select name="vehicle_type">
-                          <option value="bicycle">Bicicleta</option>
-                          <option value="motorbike">Moto</option>
-                          <option value="car">Coche</option>
-                          <option value="van">Furgoneta</option>
-                          <option value="foot">A pie</option>
+                        Quiero usar CHITA como
+                        <select
+                          value={role}
+                          onChange={(e) => setRole(e.target.value)}
+                        >
+                          <option value="courier">Repartidor</option>
+                          <option value="company">Empresa</option>
                         </select>
                       </label>
-                    )}
-                  </>
-                )}
-                <Field name="email" label="Correo electrónico" type="email" />
-                <PasswordField register={register} />
-                {register && (
-                  <>
-                    <Field name="address" label="Dirección de referencia" />
-                    <div className="fields">
-                      <Field name="latitude" label="Latitud" type="number" />
-                      <Field name="longitude" label="Longitud" type="number" />
-                    </div>
-                    <LocationPicker center={[23.1134,-82.3667]} />
-                    <p className="muted">
-                      Comprueba que las coordenadas correspondan a la dirección.
-                      El rol queda definido al crear la cuenta.
-                    </p>
-                  </>
-                )}
-                <button className="primary" disabled={busy}>
-                  {busy ? "Procesando…" : register ? "Crear cuenta" : "Entrar"}
-                </button>
-              </form>
-            </section>
-          </div>)
+                      <Field name="name" label="Tu nombre" />
+                      <Field name="phone" label="Teléfono" type="tel" />
+                      {role === "company" ? (
+                        <Field
+                          name="company_name"
+                          label="Nombre de la empresa"
+                        />
+                      ) : (
+                        <label>
+                          Medio de transporte
+                          <select name="vehicle_type">
+                            <option value="bicycle">Bicicleta</option>
+                            <option value="motorbike">Moto</option>
+                            <option value="car">Coche</option>
+                            <option value="van">Furgoneta</option>
+                            <option value="foot">A pie</option>
+                          </select>
+                        </label>
+                      )}
+                    </>
+                  )}
+                  <Field name="email" label="Correo electrónico" type="email" />
+                  <PasswordField register={register} />
+                  {register && (
+                    <>
+                      <Field name="address" label="Dirección de referencia" />
+                      <div className="fields">
+                        <Field name="latitude" label="Latitud" type="number" />
+                        <Field
+                          name="longitude"
+                          label="Longitud"
+                          type="number"
+                        />
+                      </div>
+                      <LocationPicker center={[23.1134, -82.3667]} />
+                      <p className="muted">
+                        Comprueba que las coordenadas correspondan a la
+                        dirección. El rol queda definido al crear la cuenta.
+                      </p>
+                    </>
+                  )}
+                  <button className="primary" disabled={busy}>
+                    {busy
+                      ? "Procesando…"
+                      : register
+                        ? "Crear cuenta"
+                        : "Entrar"}
+                  </button>
+                </form>
+              </section>
+            </div>
+          )
         ) : user.role === "admin" ? (
-          <AdminPanel tab={tab} select={setTab} endSession={() => window.dispatchEvent(new Event("chita-session-ended"))} />
+          <AdminPanel
+            tab={tab}
+            select={setTab}
+            endSession={() =>
+              window.dispatchEvent(new Event("chita-session-ended"))
+            }
+          />
         ) : (
           <>
- {user.role==="courier"&&<CourierAvailability hasActiveJob={jobs.some(j=>["accepted","picked_up","arrived","delivery_reported"].includes(j.status))}/>}
+            {user.role === "courier" && (
+              <div hidden={tab !== "jobs" && tab !== "offers"}>
+                <CourierAvailability
+                  hasActiveJob={jobs.some((j) =>
+                    [
+                      "accepted",
+                      "picked_up",
+                      "arrived",
+                      "delivery_reported",
+                    ].includes(j.status),
+                  )}
+                />
+              </div>
+            )}
             <section className="heading">
               <div>
                 <p className="eyebrow">
                   {user.role === "company" ? "TU EMPRESA" : "TU RUTA"}
                 </p>
                 <h1>
-                  {({ jobs: user.role === "company" ? "Organiza tus entregas" : "Encuentra tu siguiente trabajo", network: user.role === "company" ? "Tu red de repartidores" : "Invitaciones a redes", notifications: "Novedades de tus entregas", profile: "Datos de tu cuenta", nearby:"Repartidores cerca de la recogida", offers:"Propuestas con tiempo de respuesta", halcon: "Tu conexión con HALCON" } as Record<string,string>)[tab]}
+                  {
+                    (
+                      {
+                        jobs:
+                          user.role === "company"
+                            ? "Organiza tus entregas"
+                            : "Encuentra tu siguiente trabajo",
+                        network:
+                          user.role === "company"
+                            ? "Tu red de repartidores"
+                            : "Invitaciones a redes",
+                        notifications: "Novedades de tus entregas",
+                        profile: "Datos de tu cuenta",
+                        nearby: "Repartidores cerca de la recogida",
+                        offers: "Propuestas con tiempo de respuesta",
+                        halcon: "Tu conexión con HALCON",
+                      } as Record<string, string>
+                    )[tab]
+                  }
                 </h1>
               </div>
               {user.role === "company" && (
@@ -556,25 +728,63 @@ function App() {
                     setTab("jobs");
                   }}
                 >
-                  {creating && tab === "jobs" ? "Cerrar formulario" : "Publicar trabajo"}
+                  {creating && tab === "jobs"
+                    ? "Cerrar formulario"
+                    : "Publicar trabajo"}
                 </button>
               )}
-              {user.role === "courier" && tab !== "halcon" && tab !== "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
+              {user.role === "courier" &&
+                tab !== "halcon" &&
+                tab !== "profile" && (
+                  <button onClick={() => setTab("halcon")}>
+                    {linked ? "Gestionar HALCON" : "Vincular con HALCON"}
+                  </button>
+                )}
             </section>
- {tab==="offers"&&<OffersPanel user={user} changed={refresh} openJob={job=>{setSelected(job);setTab("jobs")}}/>}
- {tab==="nearby"&&user.role==="company"&&<CompanyDiscovery jobs={jobs} selected={selected} profile={profile} choose={setSelected} changed={refresh}/>}
+            {tab === "offers" && (
+              <OffersPanel
+                user={user}
+                changed={refresh}
+                openJob={(job) => {
+                  setSelected(job);
+                  setTab("jobs");
+                }}
+              />
+            )}
+            {tab === "nearby" && user.role === "company" && (
+              <CompanyDiscovery
+                jobs={jobs}
+                selected={selected}
+                profile={profile}
+                choose={setSelected}
+                changed={refresh}
+              />
+            )}
             {tab === "jobs" && (
               <>
                 {creating && (
                   <section className="panel">
                     <h2>Nuevo trabajo</h2>
                     <p className="muted">
-                      Elige si el trabajo es público o exclusivo de tu red.
-                      Los horarios se introducen en tu zona local.
+                      Elige si el trabajo es público o exclusivo de tu red. Los
+                      horarios se introducen en tu zona local.
                     </p>
                     <form onSubmit={create}>
-                      <label>Visibilidad del trabajo<select name="visibility" defaultValue="network"><option value="network">Exclusivo de mi red</option><option value="public">Público · todos los repartidores</option></select></label>
-                      <p className="muted">Un trabajo público muestra sus puntos, horarios y tarifa a los repartidores registrados. En CHITA, el GPS del repartidor sólo es visible para la empresa durante el trabajo activo.</p>
+                      <label>
+                        Visibilidad del trabajo
+                        <select name="visibility" defaultValue="network">
+                          <option value="network">Exclusivo de mi red</option>
+                          <option value="public">
+                            Público · todos los repartidores
+                          </option>
+                        </select>
+                      </label>
+                      <p className="muted">
+                        Un trabajo público muestra sus puntos, horarios y tarifa
+                        a los repartidores registrados. En CHITA, el GPS del
+                        repartidor sólo es visible para la empresa durante el
+                        trabajo activo.
+                      </p>
                       <Field name="title" label="Título del trabajo" />
                       <label>
                         Descripción
@@ -682,11 +892,27 @@ function App() {
                         ? "Mis publicaciones"
                         : "Trabajos disponibles y mis entregas"}
                     </h2>
-                    {user.role === "courier" && <div className="nearby-control"><p className="muted">Primero tus entregas activas; después las recogidas más cercanas a {rankingOrigin ? "tu última ubicación GPS" : "la ubicación de tu perfil"}. Distancia en línea recta; no es tiempo de viaje.</p><button disabled={rankingBusy} onClick={rankNearby}>{rankingBusy ? "Buscando ubicación…" : "Ordenar cerca de mí"}</button></div>}
+                    {user.role === "courier" && (
+                      <div className="nearby-control">
+                        <p className="muted">
+                          Primero tus entregas activas; después las recogidas
+                          más cercanas a{" "}
+                          {rankingOrigin
+                            ? "tu última ubicación GPS"
+                            : "la ubicación de tu perfil"}
+                          . Distancia en línea recta; no es tiempo de viaje.
+                        </p>
+                        <button disabled={rankingBusy} onClick={rankNearby}>
+                          {rankingBusy
+                            ? "Buscando ubicación…"
+                            : "Ordenar cerca de mí"}
+                        </button>
+                      </div>
+                    )}
                     {!jobs.length ? (
                       <div className="empty">
                         {user.role === "company"
-                          ? "Invita repartidores y publica tu primer trabajo."
+                          ? "Publica tu primer trabajo. Puedes ofrecerlo a todos los repartidores o a tu red."
                           : "No hay trabajos disponibles. Aquí aparecerán los públicos y los exclusivos de las redes que aceptes."}
                       </div>
                     ) : (
@@ -701,10 +927,33 @@ function App() {
                             onClick={() => {
                               if (sharing && selected?.id !== j.id) stop();
                               setSelected(j);
+                              if (
+                                window.matchMedia("(max-width: 48rem)").matches
+                              )
+                                requestAnimationFrame(() => {
+                                  detailPanel.current?.scrollIntoView({
+                                    block: "start",
+                                    behavior: window.matchMedia(
+                                      "(prefers-reduced-motion: reduce)",
+                                    ).matches
+                                      ? "instant"
+                                      : "smooth",
+                                  });
+                                  detailPanel.current?.focus({
+                                    preventScroll: true,
+                                  });
+                                });
                             }}
                           >
                             <span className="badge">{statusLabel(j)}</span>
-                            <span className="muted">{j.visibility === "public" ? "Público" : "Exclusivo de red"}{j.pickup_distance_km != null ? ` · ${new Intl.NumberFormat("es", { maximumFractionDigits: 1 }).format(j.pickup_distance_km)} km hasta recogida` : ""}</span>
+                            <span className="muted">
+                              {j.visibility === "public"
+                                ? "Público"
+                                : "Exclusivo de red"}
+                              {j.pickup_distance_km != null
+                                ? ` · ${new Intl.NumberFormat("es", { maximumFractionDigits: 1 }).format(j.pickup_distance_km)} km hasta recogida`
+                                : ""}
+                            </span>
                             <strong>{j.title}</strong>
                             <span>{j.company?.name || "Mi empresa"}</span>
                             <span className="muted">
@@ -736,7 +985,12 @@ function App() {
                       </button>
                     </div>
                   </section>
-                  <section className="panel detail">
+                  <section
+                    className="panel detail"
+                    aria-label="Detalles del trabajo"
+                    ref={detailPanel}
+                    tabIndex={-1}
+                  >
                     {selected ? (
                       <>
                         <span className="badge">{statusLabel(selected)}</span>
@@ -768,10 +1022,29 @@ function App() {
                             Repartidor: <b>{selected.courier.name}</b>
                           </p>
                         )}
-{user.role==="company"&&selected.status==="published"&&<button onClick={()=>setTab("nearby")}>Buscar repartidores para este trabajo</button>}
- {selected.pending_offer&&<p className="notice">Propuesta reservada hasta {date(selected.pending_offer.expires_at)}. <button onClick={()=>setTab("offers")}>Ver propuesta</button></p>}
- {user.role==="company"&&selected.assigned_courier_id&&<RatingCard courierID={selected.assigned_courier_id} refreshKey={`${selected.id}:${selected.status}`}/>}
- <Map job={selected} position={position} />
+                        {user.role === "company" &&
+                          selected.status === "published" && (
+                            <button onClick={() => setTab("nearby")}>
+                              Buscar repartidores para este trabajo
+                            </button>
+                          )}
+                        {selected.pending_offer && (
+                          <p className="notice">
+                            Propuesta reservada hasta{" "}
+                            {date(selected.pending_offer.expires_at)}.{" "}
+                            <button onClick={() => setTab("offers")}>
+                              Ver propuesta
+                            </button>
+                          </p>
+                        )}
+                        {user.role === "company" &&
+                          selected.assigned_courier_id && (
+                            <RatingCard
+                              courierID={selected.assigned_courier_id}
+                              refreshKey={`${selected.id}:${selected.status}`}
+                            />
+                          )}
+                        <Map job={selected} position={position} />
                         {active(selected.status) && (
                           <div className="tracking">
                             <p>
@@ -836,7 +1109,23 @@ function App() {
                               <button
                                 className="primary"
                                 disabled={busy || expired(selected)}
-                                onClick={() => selected.pending_offer ? run(async()=>{await api(`/offers/${selected.pending_offer!.id}/accept`,"POST",{});await refresh();setSelected(await api<Job>(`/jobs/${selected.id}`))}) : action("accept")}
+                                onClick={() =>
+                                  selected.pending_offer
+                                    ? run(async () => {
+                                        await api(
+                                          `/offers/${selected.pending_offer!.id}/accept`,
+                                          "POST",
+                                          {},
+                                        );
+                                        await refresh();
+                                        setSelected(
+                                          await api<Job>(
+                                            `/jobs/${selected.id}`,
+                                          ),
+                                        );
+                                      })
+                                    : action("accept")
+                                }
                               >
                                 Aceptar trabajo
                               </button>
@@ -1077,20 +1366,57 @@ function App() {
                 )}
               </section>
             )}
-            {(tab === "profile" || (tab === "halcon" && user.role === "courier")) && (
-              <section className="panel narrow">
-                {tab === "profile" && <>
-                <h2>Mi cuenta</h2>
-                <p>
-                  <b>{user.name}</b> ·{" "}
-                  {user.role === "company" ? "Empresa" : "Repartidor"}
-                </p>
-                <p>{user.email}</p>
-                <p>{profile?.address}</p>
- {user.role==="courier"&&<RatingCard courierID={user.id} readonly/>}
- {profile&&<ProfileLocation profile={profile} saved={async()=>{const r=await api<{profile:typeof profile}>("/profile");setProfile(r.profile)}}/>}
-                </>}
-                {user.role === "courier" && tab === "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
+            {(tab === "profile" ||
+              (tab === "halcon" && user.role === "courier")) && (
+              <section
+                className={
+                  tab === "profile" ? "account-layout" : "panel narrow"
+                }
+              >
+                {tab === "profile" && (
+                  <>
+                    <aside className="panel account-summary">
+                      <span className="account-avatar" aria-hidden="true">
+                        {user.name.trim().charAt(0).toUpperCase()}
+                      </span>
+                      <h2>Mi cuenta</h2>
+                      <p>
+                        <b>{user.name}</b> ·{" "}
+                        {user.role === "company" ? "Empresa" : "Repartidor"}
+                      </p>
+                      <p>{user.email}</p>
+                      <p className="muted">
+                        {user.role === "company"
+                          ? "Tu dirección sirve como referencia para publicar recogidas y buscar repartidores cercanos."
+                          : "Tu ubicación de referencia ayuda a ordenar las recogidas cercanas. No activa el envío de GPS."}
+                      </p>
+                      {user.role === "courier" && (
+                        <RatingCard courierID={user.id} readonly />
+                      )}
+                      {user.role === "courier" && (
+                        <button
+                          className="account-link"
+                          onClick={() => setTab("halcon")}
+                        >
+                          {linked ? "Gestionar HALCON" : "Vincular con HALCON"}
+                        </button>
+                      )}
+                    </aside>
+                    <div className="panel account-map-panel">
+                      {profile && (
+                        <ProfileLocation
+                          profile={profile}
+                          saved={async () => {
+                            const r = await api<{ profile: typeof profile }>(
+                              "/profile",
+                            );
+                            setProfile(r.profile);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
                 {user.role === "courier" && tab === "halcon" && (
                   <>
                     <h2>Seguimiento con HALCON</h2>

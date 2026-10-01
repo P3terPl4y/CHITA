@@ -67,3 +67,13 @@ El contrato remoto real de HALCON no se repitió en esta ronda: el broker y sus 
 - Respaldo privado de PostgreSQL y de la versión anterior antes de publicar. Migraciones 15 y 16 aplicadas. CHITA y HALCON público responden 200; búsqueda cercana sin sesión responde 401. Una consulta real del nuevo endpoint devolvió la dirección del proveedor Photon.
 
 Esta ronda no repitió el contrato remoto completo de HALCON ni una carga de 1000 usuarios. No verifica dispositivos físicos, GPS en segundo plano ni disponibilidad continua del proveedor externo. La posición cercana requiere consentimiento y expira tras cinco minutos sin actualización; una dirección sugerida puede corregirse manualmente.
+
+## Actualización: edición directa de cuenta y paneles neón
+
+- El editor de empresa y repartidor usa un único mapa abierto, con selección directa, coordenadas internas y dirección editable. Guardar espera a que termine la búsqueda y muestra confirmación. Los errores conservan la selección; descartar restaura la ubicación guardada.
+- Panel de cuenta con identidad y ubicación en columnas adaptables. Disponibilidad sigue montada al cambiar de sección para conservar el consentimiento, pero su control sólo aparece en trabajos/propuestas. La selección de un trabajo en móvil desplaza y enfoca sus detalles; respeta la preferencia de movimiento reducido.
+- Compilación TypeScript/Vite y 17 pruebas unitarias aprobadas. Trece escenarios locales de navegador aprobados, con dos pruebas de escritura real omitidas porque esta ronda utiliza una vista previa estática con API simulada. Una prueba adicional de foco y visibilidad de detalles en móvil aprobada.
+- Los nuevos escenarios de cuenta comprueban empresa y repartidor, espera de dirección, guardado, errores recuperables, descarte, ausencia de campos numéricos visibles, anchos de 320/390/768/1440 y comprobaciones axe en temas claro/oscuro.
+- Publicado después de respaldar el frontend anterior. CHITA responde 200. Ocho escenarios públicos de cuenta y temas aprobados con API controlada, sin modificar registros de producción.
+
+Esta actualización sólo modifica el cliente React; no cambia las reglas de permisos, propuestas, calificaciones ni el esquema. Las comprobaciones automáticas de accesibilidad no sustituyen pruebas con dispositivos físicos o personas usuarias.

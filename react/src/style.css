@@ -801,3 +801,34 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
 .rating-card { padding-block: 1rem; border-block-start: .0625rem solid var(--border); margin-block-start: 1rem; }
 .rating-card h3 { font-size: 1.1rem; }
 @media (max-width: 48rem) { .availability-strip, .offer-card { flex-direction: column; align-items: stretch; } .availability-strip > button { flex: auto; } }
+
+/* Neon accents frame the task; text and controls keep solid, readable surfaces. */
+.dashboard-shell { background: radial-gradient(ellipse at 90% 0%, rgb(255 220 0 / .09), transparent 45%), radial-gradient(ellipse at 0% 35%, rgb(255 0 55 / .055), transparent 45%); min-height: 100dvh; }
+.dashboard-shell .heading { position: relative; padding: clamp(1.2rem, 3vw, 2rem); border: .0625rem solid var(--border); border-radius: 1.5rem; background: linear-gradient(120deg, var(--surface), var(--subtle)); box-shadow: 0 .3rem 2rem rgb(255 40 55 / .07); overflow: hidden; }
+.dashboard-shell .heading::before { content: ""; position: absolute; inset: 0 0 auto; height: .25rem; background: linear-gradient(90deg, #ffdc00, #ff6320, #ff0037); }
+.dashboard-shell .heading h1 { font-size: clamp(1.6rem, 3.5vw, 2.7rem); letter-spacing: -.035em; }
+.dashboard-shell .panel { border-radius: 1.35rem; box-shadow: 0 .4rem 1.5rem rgb(0 0 0 / .05); }
+.dashboard-shell .primary { background: linear-gradient(110deg, #ffdc00, #ffbd00); color: #101010; border-color: #b98600; box-shadow: 0 .2rem 1rem rgb(255 190 0 / .2); }
+.dashboard-shell .primary:hover:enabled { box-shadow: 0 .3rem 1.4rem rgb(255 190 0 / .35); border-color: #101010; }
+.dashboard-shell .jobcard { border-radius: 1.1rem; text-align: start; }
+.dashboard-shell .jobcard.selected { border-color: var(--brand); box-shadow: inset .25rem 0 var(--brand), 0 .15rem 1rem rgb(255 0 55 / .12); }
+.dashboard-shell .availability-strip { border-inline-start: .25rem solid var(--brand); background: var(--surface); }
+.account-layout { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.8fr); gap: clamp(1rem, 3vw, 2rem); align-items: start; }
+.account-summary { overflow-wrap: anywhere; }
+.account-avatar { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 1rem; background: linear-gradient(135deg, #ffdc00, #ff9c00); color: #101010; font-size: 1.7rem; font-weight: 800; box-shadow: 0 0 1.5rem rgb(255 190 0 / .2); }
+.account-link { margin-block-start: 1rem; width: 100%; }
+.account-map-panel { min-width: 0; }
+.location-heading { display: flex; align-items: start; gap: 1rem; }
+.location-heading h3 { font-size: 1.5rem; margin: 0; }
+.location-heading p { margin-block: .4rem 0; }
+.step-token { font-size: 1.7rem; color: var(--brand); }
+.account-map-panel .map { height: clamp(18rem, 45vh, 30rem); border: .125rem solid var(--input-border); }
+.location-savebar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-block-start: 1.25rem; padding-block-start: 1rem; border-block-start: .0625rem solid var(--border); }
+.location-savebar .actions { margin: 0; }
+.map-saving { pointer-events: none; opacity: .7; }
+:root[data-theme="dark"] .dashboard-shell .panel { box-shadow: 0 .3rem 2rem rgb(255 0 55 / .06); }
+:root[data-theme="dark"] .dashboard-shell .desktop-nav .chosen { box-shadow: 0 0 1rem rgb(255 220 0 / .15); }
+@media (max-width: 48rem) { .account-layout { grid-template-columns: 1fr; } .account-summary { display: grid; grid-template-columns: auto minmax(0,1fr); gap: .5rem 1rem; } .account-summary .account-avatar { grid-row: span 2; } .account-summary h2, .account-summary p { margin: 0; } .account-summary > .muted, .account-summary > .rating-card, .account-summary > button { grid-column: 1 / -1; } .location-savebar { align-items: stretch; } .location-savebar .actions { width: 100%; } .location-savebar button { flex: 1; } }
+@media (prefers-reduced-motion: reduce) { .dashboard-shell * { scroll-behavior: auto; } }
+.dashboard-shell .heading { margin-block-end: 1.5rem; }
+.dashboard-shell .detail { scroll-margin-block-start: 14rem; }

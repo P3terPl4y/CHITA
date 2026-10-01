@@ -158,16 +158,26 @@ export function LocationPicker({
   latitudeName = prefix ? prefix + "_lat" : "latitude",
   longitudeName = prefix ? prefix + "_lng" : "longitude",
   addressName = prefix ? prefix + "_address" : "address",
+  compact = false,
+  disabled = false,
+  onPick,
+  onBusyChange,
 }: {
   prefix?: string;
   center: [number, number];
   latitudeName?: string;
   longitudeName?: string;
   addressName?: string;
+  compact?: boolean;
+  disabled?: boolean;
+  onPick?: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const choose = useRef<((lat: number, lng: number) => void) | null>(null);
+  const callbacks = useRef({ disabled, onPick, onBusyChange });
+  callbacks.current = { disabled, onPick, onBusyChange };
   const [open, setOpen] = useState(true);
   const [message, setMessage] = useState(
     "Selecciona un punto en el mapa. Puedes ajustar después la dirección.",
@@ -225,7 +235,8 @@ export function LocationPicker({
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
     async function pick(a: number, b: number) {
-      if (!valid(a, b)) return;
+      if (!valid(a, b) || callbacks.current.disabled) return;
+      callbacks.current.onPick?.();
       const current = ++generation;
       abort?.abort();
       abort = new AbortController();
@@ -237,6 +248,7 @@ export function LocationPicker({
       event(address);
       sync();
       setBusy(true);
+      callbacks.current.onBusyChange?.(true);
       setMessage("Buscando la dirección de este punto…");
       try {
         const r = await api<{ address: string }>(
@@ -261,7 +273,10 @@ export function LocationPicker({
               : "No se encontró la dirección. Escríbela manualmente.",
           );
       } finally {
-        if (live && current === generation) setBusy(false);
+        if (live && current === generation) {
+          setBusy(false);
+          callbacks.current.onBusyChange?.(false);
+        }
       }
     }
     choose.current = (a, b) => {
@@ -280,6 +295,7 @@ export function LocationPicker({
       live = false;
       generation++;
       abort?.abort();
+      callbacks.current.onBusyChange?.(false);
       resize.disconnect();
       lat.removeEventListener("input", sync);
       lng.removeEventListener("input", sync);
@@ -289,7 +305,7 @@ export function LocationPicker({
     };
   }, [open, latitudeName, longitudeName, addressName]);
   function gps() {
-    if (locating) return;
+    if (locating || disabled) return;
     if (!navigator.geolocation) {
       setMessage("Este navegador no ofrece GPS. Elige un punto en el mapa.");
       return;
@@ -312,24 +328,27 @@ export function LocationPicker({
   return (
     <div className="location-picker">
       <div className="actions">
-        <button
-          type="button"
-          className="quiet"
-          aria-expanded={open}
-          onClick={() => {
-            setOpen((x) => !x);
-            setBusy(false);
-          }}
-        >
-          {open ? "Cerrar mapa" : "Elegir ubicación en el mapa"}
-        </button>
+        {!compact && (
+          <button
+            type="button"
+            className="quiet"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen((x) => !x);
+              setBusy(false);
+            }}
+          >
+            {open ? "Cerrar mapa" : "Elegir ubicación en el mapa"}
+          </button>
+        )}
         {open && (
           <>
-            <button type="button" disabled={locating} onClick={gps}>
+            <button type="button" disabled={locating || disabled} onClick={gps}>
               {locating ? "Obteniendo GPS…" : "Usar mi ubicación"}
             </button>
             <button
               type="button"
+              disabled={disabled}
               onClick={() => {
                 const p = map.current?.getCenter();
                 if (p) choose.current?.(p.lat, p.lng);
@@ -347,7 +366,7 @@ export function LocationPicker({
           </p>
           <div
             ref={el}
-            className="map"
+            className={"map" + (disabled ? " map-saving" : "")}
             role="region"
             aria-label={
               prefix

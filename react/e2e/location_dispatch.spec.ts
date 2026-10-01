@@ -507,3 +507,21 @@ test("propuesta real y calificación sólo tras tres entregas confirmadas", asyn
     await courierContext.close();
   }
 });
+
+test("seleccionar un trabajo en móvil enfoca sus detalles", async ({
+  page,
+}) => {
+  await fixture(page, "company");
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.locator(".jobcard").first().click();
+  const detail = page.getByRole("region", {
+    name: "Detalles del trabajo",
+    exact: true,
+  });
+  await expect(detail).toBeFocused();
+  await expect(
+    detail.getByRole("heading", { name: "Entrega de prueba", exact: true }),
+  ).toBeInViewport();
+});

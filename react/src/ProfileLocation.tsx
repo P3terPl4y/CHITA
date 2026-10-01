@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api } from "./api";
-import { LocationPicker, PointMap } from "./Map";
+import { LocationPicker } from "./Map";
 type Profile = { address: string; latitude: number; longitude: number };
 export function ProfileLocation({
   profile,
@@ -9,15 +9,19 @@ export function ProfileLocation({
   profile: Profile;
   saved: () => Promise<void>;
 }) {
-  const [editing, setEditing] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [revision, setRevision] = useState(0);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || resolving || !dirty) return;
     const data = new FormData(e.currentTarget);
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await api("/profile/location", "PUT", {
         address: data.get("address"),
@@ -25,87 +29,109 @@ export function ProfileLocation({
         longitude: Number(data.get("longitude")),
       });
       await saved();
-      setEditing(false);
+      setDirty(false);
+      setMessage("Ubicación guardada");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo guardar. Conservamos tu selección para que puedas intentarlo otra vez.",
+      );
     } finally {
       setBusy(false);
     }
   }
+  function changed() {
+    setDirty(true);
+    setError("");
+    setMessage("");
+  }
   return (
-    <div className="profile-location">
-      <PointMap
-        points={[
-          {
-            latitude: profile.latitude,
-            longitude: profile.longitude,
-            label: profile.address,
-          },
-        ]}
-        label="Dirección de tu perfil en el mapa"
-      />
-      {!editing ? (
-        <button onClick={() => setEditing(true)}>
-          Editar dirección y ubicación
-        </button>
-      ) : (
-        <form onSubmit={submit}>
-          <h3>Ubicación de referencia</h3>
-          <label>
-            Dirección
-            <input
-              name="address"
-              defaultValue={profile.address}
-              required
-              maxLength={255}
-            />
-          </label>
-          <div className="fields">
-            <label>
-              Latitud
-              <input
-                name="latitude"
-                type="number"
-                step="any"
-                defaultValue={profile.latitude}
-                required
-                min={-90}
-                max={90}
-              />
-            </label>
-            <label>
-              Longitud
-              <input
-                name="longitude"
-                type="number"
-                step="any"
-                defaultValue={profile.longitude}
-                required
-                min={-180}
-                max={180}
-              />
-            </label>
-          </div>
-          <LocationPicker center={[profile.latitude, profile.longitude]} />
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+    <section
+      className="profile-location"
+      aria-label="Editar ubicación de la cuenta"
+    >
+      <div className="location-heading">
+        <span className="step-token" aria-hidden="true">
+          ◎
+        </span>
+        <div>
+          <h3>Tu ubicación</h3>
+          <p className="muted">
+            Toca el punto correcto en el mapa y guarda. También puedes usar tu
+            ubicación actual.
+          </p>
+        </div>
+      </div>
+      <form key={revision} onSubmit={submit}>
+        <input type="hidden" name="latitude" defaultValue={profile.latitude} />
+        <input
+          type="hidden"
+          name="longitude"
+          defaultValue={profile.longitude}
+        />
+        <LocationPicker
+          center={[profile.latitude, profile.longitude]}
+          compact
+          disabled={busy}
+          onPick={changed}
+          onBusyChange={setResolving}
+        />
+        <label>
+          Dirección seleccionada
+          <input
+            name="address"
+            defaultValue={profile.address}
+            required
+            minLength={3}
+            maxLength={255}
+            disabled={busy}
+            onChange={changed}
+          />
+        </label>
+        <small className="muted">
+          La dirección es aproximada. Corrígela o añade una referencia si hace
+          falta.
+        </small>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p className="notice" role="status">
+            {message}
+          </p>
+        )}
+        <div className="location-savebar">
+          <span className="muted">
+            {resolving
+              ? "Buscando dirección…"
+              : dirty
+                ? "Tienes cambios sin guardar"
+                : "Ubicación guardada en tu cuenta"}
+          </span>
           <div className="actions">
-            <button className="primary" disabled={busy}>
+            {dirty && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setRevision((r) => r + 1);
+                  setDirty(false);
+                  setError("");
+                  setMessage("");
+                }}
+              >
+                Descartar cambios
+              </button>
+            )}
+            <button className="primary" disabled={busy || resolving || !dirty}>
               {busy ? "Guardando…" : "Guardar ubicación"}
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setEditing(false)}
-            >
-              Volver
-            </button>
           </div>
-        </form>
-      )}
-    </div>
+        </div>
+      </form>
+    </section>
   );
 }
