@@ -14,6 +14,7 @@ import (
 // bootstrap/app.go
 func Boot() contractsfoundation.Application {
 	return foundation.Setup().
+		WithCommands(Commands).
 		WithMigrations(Migrations).
 		WithProviders(Providers).
 		WithConfig(config.Boot).

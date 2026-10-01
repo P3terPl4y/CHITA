@@ -385,10 +385,14 @@ func (t *Tracking) Publish(u *models.User, id uint, p Point, grant string) error
 		return Fail(422, "Coordenadas inválidas")
 	}
 	return facades.Orm().Transaction(func(tx orm.Query) error {
-		if err := LockGrant(tx, u.ID, grant); err != nil {
-			return err
-		}
+		// Lock deliveries before accounts, consistently with workflow transitions.
 		if _, e := trackingJob(tx.LockForUpdate(), u, id); e != nil {
+			return e
+		}
+		if e := activeUser(tx, u.ID, "courier"); e != nil {
+			return e
+		}
+		if e := LockGrant(tx, u.ID, grant); e != nil {
 			return e
 		}
 		a, e := account(tx.LockForUpdate(), u.ID)

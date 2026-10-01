@@ -2,6 +2,7 @@ import { freshPosition } from "./gps";
 import { ThemePicker } from "./Theme";
 import { Landing } from "./Landing";
 import { PasswordField } from "./PasswordField";
+import { AdminPanel } from "./AdminPanel";
 import { Navigation } from "./Navigation";
 import {
   useEffect,
@@ -161,7 +162,7 @@ function App() {
       .finally(() => setReady(true));
   }, []);
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role === "admin") return;
     const version = generation.current;
     let live = true;
     refresh().catch((e) => live && setError(e.message));
@@ -176,6 +177,7 @@ function App() {
       clearInterval(timer);
     };
   }, [user?.id, page, rankingOrigin?.lat, rankingOrigin?.lng]);
+  useEffect(() => { if (user?.role === "admin") setTab("overview"); }, [user?.id]);
   function rankNearby() {
     if (rankingBusy) return;
     if (!navigator.geolocation) { setError("Puedes ordenar con la ubicación de tu perfil; este navegador no ofrece GPS."); return; }
@@ -439,7 +441,7 @@ function App() {
               disabled={busy}
               onClick={() =>
                 run(async () => {
-                  await stop();
+                  if (user.role !== "admin") await stop();
                   await api("/auth/logout", "POST", {});
                   generation.current++;
                   setProfile(null);
@@ -562,6 +564,8 @@ function App() {
               </form>
             </section>
           </div>)
+        ) : user.role === "admin" ? (
+          <AdminPanel tab={tab} select={setTab} endSession={() => window.dispatchEvent(new Event("chita-session-ended"))} />
         ) : (
           <>
             <section className="heading">

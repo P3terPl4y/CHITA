@@ -763,3 +763,25 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
   header:has(.desktop-nav) .account { flex-basis: 100%; justify-content: space-between; }
   .landing-guide { grid-template-columns: 1fr; }
 }
+
+.admin-panel { min-width: 0; }
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,12rem),1fr)); gap: 1rem; margin-block: 1.5rem; }
+.admin-stat { display: flex; flex-direction: column; align-items: start; text-align: left; gap: .65rem; }
+.admin-stat strong { font-size: clamp(2rem,4vw,3rem); }
+.admin-form-grid, .admin-filters { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap: 1rem; }
+.admin-records { display: grid; gap: 1rem; margin-block: 1rem; }
+.admin-record { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; }
+.admin-record > div { min-width: 0; overflow-wrap: anywhere; }
+.admin-record h2 { font-size: 1.25rem; margin-block: .4rem; }
+.admin-record .actions { flex-shrink: 0; max-width: 26rem; }
+.admin-checkbox { display: flex; align-items: center; gap: .7rem; margin-block: 1rem; }
+.admin-checkbox input { width: 1.2rem; height: 1.2rem; accent-color: var(--brand); }
+.admin-detail { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap: 1rem; }
+.admin-detail dt { font-weight: 700; }
+.admin-detail dd { margin: .3rem 0; overflow-wrap: anywhere; }
+.admin-audit { border-bottom: .0625rem solid var(--border); padding-block: 1rem; overflow-wrap: anywhere; }
+.admin-dialog { width: min(34rem,calc(100% - 2rem)); max-height: calc(100dvh - 2rem); padding: clamp(1rem,4vw,2rem); border: .0625rem solid var(--border); border-radius: 1.3rem; background: var(--surface); color: var(--ink); }
+.admin-dialog::backdrop { background: rgb(0 0 0 / .7); backdrop-filter: blur(.3rem); }
+.admin-dialog h2 { overflow-wrap: anywhere; }
+.admin-panel .pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; margin-block: 1.5rem; }
+@media (max-width: 48rem) { .admin-record { flex-direction: column; align-items: stretch; } .admin-record .actions { max-width: none; } .admin-panel .heading { flex-wrap: wrap; } }

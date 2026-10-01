@@ -9,6 +9,7 @@ import (
 type User struct {
 	orm.Model
 	orm.SoftDeletes
+	AdminVersion int `gorm:"not null;default:1" json:"-"`
 
 	UUID            string     `gorm:"type:uuid;uniqueIndex;not null" json:"uuid"`
 	Email           string     `gorm:"type:varchar(254);uniqueIndex:idx_users_email_active,where:deleted_at IS NULL;not null" json:"email"`

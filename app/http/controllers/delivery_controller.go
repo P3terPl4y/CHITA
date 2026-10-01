@@ -105,7 +105,7 @@ func signIn(c fiber.Ctx, u *models.User) error {
 	}
 	s.Set("user_id", u.ID)
 	token := uuid.NewString()
-	if err := services.Grant(u.ID, token); err != nil {
+	if err := services.Grant(u.ID, token, u.PasswordHash); err != nil {
 		_ = s.Destroy()
 		return err
 	}

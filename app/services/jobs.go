@@ -88,6 +88,9 @@ func CreateJob(u *models.User, input JobInput) (*models.Publication, error) {
 		return nil, err
 	}
 	err = facades.Orm().Transaction(func(tx orm.Query) error {
+		if err := activeUser(tx, u.ID, "company"); err != nil {
+			return err
+		}
 		c, err := Company(tx, u.ID)
 		if err != nil {
 			return err
@@ -194,6 +197,17 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 		if company.ID == 0 {
 			return Fail(404, "Trabajo no disponible")
 		}
+		if u.Role != "company" && u.Role != "courier" {
+			return Fail(403, "Esta operación requiere una empresa o un repartidor")
+		}
+		if err := activeUser(tx, company.OwnerUserID, "company"); err != nil {
+			return err
+		}
+		if u.Role == "courier" {
+			if err := activeUser(tx, u.ID, "courier"); err != nil {
+				return err
+			}
+		}
 		if u.Role == "company" {
 			if company.OwnerUserID != u.ID {
 				return Fail(404, "Trabajo no encontrado")
@@ -220,7 +234,7 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 		}
 		previous := p.Status
 		now := time.Now().UTC()
-		updates := map[string]any{"status": next}
+		updates := map[string]any{"status": next, "admin_version": p.AdminVersion + 1}
 		switch action {
 		case "accept":
 			p.AssignedCourierID = &u.ID

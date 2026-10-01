@@ -125,3 +125,30 @@ Referencias utilizadas: [ORM Goravel](https://www.goravel.dev/orm/getting-starte
 Los mapas usan la URL oficial y una política de referencia que envía sólo el origen al proveedor. Se respeta la caché normal del navegador. Las pruebas repetidas de navegador usan imágenes de mapa controladas para no descargar mosaicos del servicio comunitario en cada ejecución. Política: https://operations.osmfoundation.org/policies/tiles/.
 
 En este entorno se instaló un servicio de usuario `chita.service` para arranque **local** en 127.0.0.1:3330. Su plantilla está en `deploy/chita.service`. Se administra con `systemctl --user status|restart|stop chita.service`. HALCON continúa en su servicio separado. No hay publicación pública de CHITA configurada en esta entrega.
+
+### Administración
+
+El rol `admin` es independiente de empresa y repartidor. El registro público no permite elegirlo ni convertir cuentas existentes. Para crear la primera cuenta desde el servidor:
+
+```bash
+cd /home/peter/CHITA
+./artisan admin:create --email tu-correo --name "Administrador"
+```
+
+El comando solicita y confirma la contraseña sin mostrarla. También admite `--password-file` con un archivo regular privado (0600). No pases contraseñas como argumentos. Entra desde `/entrar` para abrir el panel; la sección Seguridad permite cambiar la contraseña y cierra todas las sesiones.
+
+El panel contiene resumen, trabajos, empresas, repartidores, historial y seguridad, con navegación móvil, búsqueda, filtros, paginación y formularios de creación/edición. Cada cambio requiere un motivo y se registra en `admin_audits` dentro de la misma transacción. Las versiones impiden sobrescribir un cambio simultáneo.
+
+- Las empresas y repartidores se crean con cuentas y perfiles dedicados. El rol y los identificadores son inmutables. Desactivar o restablecer la contraseña invalida las sesiones y desvincula HALCON.
+- Archivar es una eliminación lógica: mantiene las relaciones y el historial. Las cuentas restauradas quedan desactivadas; deben activarse explícitamente. Las invitaciones revocadas requieren nuevo consentimiento. Un correo reutilizado impide restaurar la cuenta original hasta resolver el conflicto.
+- No se pueden desactivar cuentas con entregas pendientes ni archivar una empresa con publicaciones abiertas. Los trabajos aceptados conservan tarifa, horarios y recorrido. Administración sólo puede cancelar antes de la recogida; la confirmación de entrega corresponde a la empresa.
+- El panel no concede acceso al GPS de repartidores: se mantienen los permisos específicos de cada entrega. No se devuelven hashes ni credenciales de HALCON. El historial administrativo es de sólo lectura en la API.
+- La migración administrativa se niega a revertir si existen administradores o registros de auditoría, para evitar perder permisos e historial.
+
+Pruebas del panel (sólo sobre una base cuyo nombre termine en `_validation`, con migraciones aplicadas):
+
+```bash
+CHITA_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=55439 DB_DATABASE=chita_validation DB_USERNAME=peter DB_PASSWORD='' go test -race ./app/server -count=1
+```
+
+`react/e2e/admin.spec.ts` verifica ambos temas, navegación móvil, accesibilidad y CRUD real. La prueba real exige `CHITA_ADMIN_BROWSER=1`, el servidor aislado en el puerto 3340 y una cuenta ficticia `admin-browser@chita.test` con la contraseña de prueba indicada en ese archivo. Nunca crees esa cuenta en producción. Las demás pruebas de apariencia usan respuestas simuladas y no modifican datos.

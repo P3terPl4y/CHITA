@@ -2,7 +2,7 @@ export type User = {
   id: number;
   name: string;
   email: string;
-  role: "company" | "courier";
+  role: "company" | "courier" | "admin";
   phone: string;
 };
 export type Job = {

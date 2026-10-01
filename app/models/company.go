@@ -8,6 +8,7 @@ import (
 type Company struct {
 	orm.Model
 	orm.SoftDeletes
+	AdminVersion int `gorm:"not null;default:1" json:"-"`
 
 	UUID             string     `gorm:"type:uuid;uniqueIndex;not null" json:"uuid"`
 	OwnerUserID      uint       `gorm:"index;not null" json:"owner_user_id"`

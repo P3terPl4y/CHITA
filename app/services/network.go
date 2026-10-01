@@ -32,6 +32,9 @@ func Invite(u *models.User, email string) (*models.CompanyMember, error) {
 	}
 	var m models.CompanyMember
 	err = facades.Orm().Transaction(func(tx orm.Query) error {
+		if e := activeUser(tx, u.ID, "company"); e != nil {
+			return e
+		}
 		c, err := Company(tx.LockForUpdate(), u.ID)
 		if err != nil {
 			return err
@@ -42,6 +45,9 @@ func Invite(u *models.User, email string) (*models.CompanyMember, error) {
 		}
 		if courier.ID == 0 {
 			return Fail(422, "Indica el correo de una cuenta de repartidor activa")
+		}
+		if e := activeUser(tx, courier.ID, "courier"); e != nil {
+			return e
 		}
 		if err = tx.Where("company_id=?", c.ID).Where("user_id=?", courier.ID).First(&m); err != nil {
 			return err
@@ -69,6 +75,9 @@ func Invite(u *models.User, email string) (*models.CompanyMember, error) {
 }
 func Membership(u *models.User, id uint, action string) error {
 	return facades.Orm().Transaction(func(tx orm.Query) error {
+		if e := activeUser(tx, u.ID, u.Role); e != nil {
+			return e
+		}
 		var m models.CompanyMember
 		if err := tx.Where("id=?", id).LockForUpdate().First(&m); err != nil {
 			return err
@@ -79,6 +88,13 @@ func Membership(u *models.User, id uint, action string) error {
 		if action == "accept" {
 			if u.Role != "courier" || m.UserID != u.ID {
 				return Fail(404, "Invitación no encontrada")
+			}
+			var company models.Company
+			if e := tx.Where("id=?", m.CompanyID).Where("status=?", "active").First(&company); e != nil {
+				return e
+			}
+			if company.ID == 0 {
+				return Fail(409, "Esta empresa no está activa")
 			}
 			if m.Status != "pending" {
 				return Fail(409, "La invitación ya cambió de estado")

@@ -23,6 +23,17 @@ func Web(app *fiber.App, d *controllers.DeliveryController) {
 		return strconv.FormatUint(uint64(controllers.UserID(c)), 10)
 	}
 	protected.Use(limiter.New(limiter.Config{Max: 240, Expiration: time.Minute, KeyGenerator: userKey, LimitReached: reached}))
+	admin := protected.Group("/admin", controllers.RequireAdmin)
+	a := &controllers.AdminController{Tracking: d.Tracking}
+	admin.Get("/overview", a.Overview)
+	admin.Get("/audits", a.Audits)
+	admin.Post("/password", a.Password)
+	admin.Get("/:entity", a.List)
+	admin.Post("/:entity", a.Save)
+	admin.Get("/:entity/:id", a.Detail)
+	admin.Put("/:entity/:id", a.Save)
+	admin.Delete("/:entity/:id", a.Change)
+	admin.Post("/:entity/:id/:action", a.Change)
 	protected.Post("/auth/logout", d.Logout)
 	protected.Get("/profile", d.Profile)
 	protected.Get("/jobs", d.Jobs)
