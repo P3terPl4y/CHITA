@@ -1,10 +1,15 @@
 import { freshPosition } from "./gps";
+import { ThemePicker } from "./Theme";
+import { Landing } from "./Landing";
+import { PasswordField } from "./PasswordField";
+import { Navigation } from "./Navigation";
 import {
   useEffect,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
+  type MouseEvent,
 } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -70,13 +75,17 @@ function Field({
   );
 }
 function App() {
+  const [publicPath, setPublicPath] = useState(window.location.pathname);
+  const [rankingOrigin, setRankingOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [rankingBusy, setRankingBusy] = useState(false);
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [register, setRegister] = useState(false),
-    [role, setRole] = useState("courier"),
+    [locating, setLocating] = useState(false),
+    [register, setRegister] = useState(window.location.pathname === "/registro"),
+    [role, setRole] = useState(new URLSearchParams(window.location.search).get("rol") === "empresa" ? "company" : "courier"),
     [tab, setTab] = useState("jobs"),
     [jobs, setJobs] = useState<Job[]>([]),
     [network, setNetwork] = useState<Network[]>([]),
@@ -99,15 +108,40 @@ function App() {
     gps = useRef<GeolocationPosition | null>(null),
     sending = useRef(false),
     generation = useRef(0),
-    gpsVersion = useRef(0);
+    gpsVersion = useRef(0),
+    rankingVersion = useRef(0);
+  function syncPublicRoute() {
+    setPublicPath(window.location.pathname);
+    setRegister(window.location.pathname === "/registro");
+    setRole(new URLSearchParams(window.location.search).get("rol") === "empresa" ? "company" : "courier");
+  }
+  useEffect(() => {
+    window.addEventListener("popstate", syncPublicRoute);
+    return () => window.removeEventListener("popstate", syncPublicRoute);
+  }, []);
+  function navigatePublic(event: MouseEvent<HTMLDivElement>) {
+    if (user || busy || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (!anchor || anchor.hasAttribute("download") || anchor.target) return;
+    const url = new URL(anchor.href);
+    if (url.origin !== window.location.origin || !["/", "/entrar", "/registro"].includes(url.pathname) || url.hash) return;
+    event.preventDefault();
+    window.history.pushState(null, "", url.pathname + url.search);
+    syncPublicRoute();
+    setError("");
+    setNotice("");
+    window.scrollTo({ top: 0, behavior: "instant" });
+    requestAnimationFrame(() => document.getElementById("contenido")?.focus({ preventScroll: true }));
+  }
   async function refresh() {
     const version = generation.current;
+    const orderVersion = rankingVersion.current;
     const [a, b, n] = await Promise.all([
-      api<{ items: Job[]; total: number }>("/jobs?page=" + page),
+      api<{ items: Job[]; total: number }>("/jobs?page=" + page + (rankingOrigin ? `&lat=${rankingOrigin.lat}&lng=${rankingOrigin.lng}` : "")),
       api<Network[]>("/network"),
       api<Notice[]>("/notifications"),
     ]);
-    if (version !== generation.current) return;
+    if (version !== generation.current || orderVersion !== rankingVersion.current) return;
     setJobs(a.items);
     setTotal(a.total);
     setNetwork(b);
@@ -141,7 +175,24 @@ function App() {
       live = false;
       clearInterval(timer);
     };
-  }, [user?.id, page]);
+  }, [user?.id, page, rankingOrigin?.lat, rankingOrigin?.lng]);
+  function rankNearby() {
+    if (rankingBusy) return;
+    if (!navigator.geolocation) { setError("Puedes ordenar con la ubicación de tu perfil; este navegador no ofrece GPS."); return; }
+    const version = generation.current;
+    setRankingBusy(true);
+    navigator.geolocation.getCurrentPosition(point => {
+      if (version !== generation.current) return;
+      setRankingBusy(false);
+      rankingVersion.current++;
+      setRankingOrigin({ lat: point.coords.latitude, lng: point.coords.longitude });
+      setPage(1);
+    }, () => {
+      if (version !== generation.current) return;
+      setRankingBusy(false);
+      if (version === generation.current) setError(rankingOrigin ? "No se pudo obtener tu ubicación. El orden conserva la última ubicación GPS obtenida." : "No se pudo obtener tu ubicación. El orden sigue usando la ubicación de tu perfil.");
+    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 });
+  }
   async function run(fn: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -172,6 +223,8 @@ function App() {
       generation.current++;
       stop(false);
       setUser(null);
+      setRankingOrigin(null);
+      setRankingBusy(false);
       setSelected(null);
       setJobs([]);
       setNetwork([]);
@@ -180,6 +233,9 @@ function App() {
       setLinked(false);
       setTab("jobs");
       setCreating(false);
+      window.history.replaceState(null, "", "/entrar");
+      setPublicPath("/entrar");
+      setRegister(false);
       setError("La sesión terminó. Vuelve a entrar.");
       void session().catch(() => {});
     };
@@ -245,17 +301,21 @@ function App() {
           : r,
       );
       setUser(await session());
+      window.history.replaceState(null, "", "/");
       setPage(1);
       setNotice("Sesión iniciada");
     });
   }
   function locate(form: HTMLFormElement | null) {
+    if (locating) return;
     if (!navigator.geolocation) {
       setError("Este navegador no ofrece ubicación");
       return;
     }
+    setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (p) => {
+        setLocating(false);
         if (form) {
           (form.elements.namedItem("latitude") as HTMLInputElement).value =
             String(p.coords.latitude);
@@ -263,10 +323,12 @@ function App() {
             String(p.coords.longitude);
         }
       },
-      () =>
+      () => {
+        setLocating(false);
         setError(
           "No se pudo obtener tu ubicación. Puedes introducir las coordenadas.",
-        ),
+        );
+      },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 },
     );
   }
@@ -292,7 +354,7 @@ function App() {
         body[k] = new Date(String(r[k])).toISOString();
       await api("/jobs", "POST", body);
       setCreating(false);
-      setNotice("Trabajo publicado para tu red");
+      setNotice(body.visibility === "public" ? "Trabajo público publicado" : "Trabajo publicado para tu red");
       await refresh();
     });
   }
@@ -359,12 +421,16 @@ function App() {
       </main>
     );
   return (
-    <>
-      <header>
+    <div className="app-shell" onClick={navigatePublic}>
+      <a className="skip-link" href="#contenido">Saltar al contenido</a>
+      <header className={!user ? "public-header" : ""}>
         <a className="brand" href="/" aria-label="CHITA inicio">
-          <span className="logo">C</span>CHITA
+          <img className="platform-logo" src="/chita.svg" alt="CHITA" />
         </a>
         <span className="tagline">Entregas, paso a paso.</span>
+        {user && <Navigation role={user.role} tab={tab} unread={notices.some(n => !n.read_at)} select={setTab} />}
+        {!user && <div className="public-links"><a href="/#como-funciona">Cómo funciona</a><a href="/entrar">Entrar</a><a className="header-cta" href="/registro">Crear cuenta</a></div>}
+        <ThemePicker />
         {user && (
           <div className="account">
             <span>{user.name}</span>
@@ -381,11 +447,15 @@ function App() {
                   setCreating(false);
                   setPosition(null);
                   setUser(null);
+                  setRankingOrigin(null);
+                  setRankingBusy(false);
                   setSelected(null);
                   setJobs([]);
                   setNetwork([]);
                   setNotices([]);
                   setLinked(false);
+                  window.history.replaceState(null, "", "/");
+                  setPublicPath("/");
                   await session();
                 })
               }
@@ -395,7 +465,7 @@ function App() {
           </div>
         )}
       </header>
-      <main>
+      <main id="contenido" tabIndex={-1} className={!user && !["/entrar", "/registro"].includes(publicPath) ? "landing-main" : ""}>
         {error && (
           <div className="alert" role="alert">
             {error}
@@ -409,43 +479,31 @@ function App() {
             {notice}
           </div>
         )}
-        {!user ? (
-          <div className="welcome">
-            <section className="intro">
-              <p className="eyebrow">EMPRESAS + REPARTIDORES</p>
-              <h1>Coordina la siguiente entrega.</h1>
-              <p>
-                Publica trabajos para tu red, acuerda horarios y tarifas, y
-                confirma cada entrega.
-              </p>
-              <ul>
-                <li>Invitaciones que el repartidor acepta.</li>
-                <li>Seguimiento con HALCON durante el trabajo.</li>
-                <li>Estados y avisos dentro de CHITA.</li>
-              </ul>
-              <p className="muted">
-                La tarifa se acuerda entre las partes. CHITA no procesa pagos ni
-                garantiza tiempos de entrega. La ubicación requiere permisos y
-                la app abierta.
-              </p>
-            </section>
-            <section className="panel">
+        {!user ? (!["/entrar", "/registro"].includes(publicPath) ? <Landing /> : (
+          <div className="auth-layout">
+            <div className="auth-intro"><a href="/">← Volver a CHITA</a><p className="eyebrow">TU CUENTA. TU RECORRIDO.</p><h1>{register ? "Conecta. Coordina. Entrega." : "Tu siguiente entrega empieza aquí."}</h1><p>{register ? "Elige tu rol y añade los datos que tu red necesita para coordinar contigo." : "Entra para ver tus trabajos, tu red y las novedades de tus entregas."}</p></div>
+            <section className="panel auth-panel" id="cuenta" tabIndex={-1}>
+              <p className="auth-kicker"><span aria-hidden="true">↗</span> TU SIGUIENTE PASO</p>
               <div className="switch">
                 <button
                   className={!register ? "chosen" : ""}
-                  onClick={() => setRegister(false)}
+                  aria-pressed={!register}
+                  disabled={busy}
+                  onClick={() => { window.history.replaceState(null, "", "/entrar"); setRegister(false); setError(""); }}
                 >
                   Entrar
                 </button>
                 <button
                   className={register ? "chosen" : ""}
-                  onClick={() => setRegister(true)}
+                  aria-pressed={register}
+                  disabled={busy}
+                  onClick={() => { window.history.replaceState(null, "", "/registro"); setRegister(true); setError(""); }}
                 >
                   Crear cuenta
                 </button>
               </div>
               <h2>{register ? "Tu cuenta de CHITA" : "Bienvenido de nuevo"}</h2>
-              <form onSubmit={auth}>
+              <form onSubmit={auth} aria-busy={busy}>
                 {register && (
                   <>
                     <label>
@@ -477,33 +535,21 @@ function App() {
                   </>
                 )}
                 <Field name="email" label="Correo electrónico" type="email" />
-                <label>
-                  Contraseña
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength={register ? 8 : 1}
-                    maxLength={72}
-                    autoComplete={
-                      register ? "new-password" : "current-password"
-                    }
-                  />
-                </label>
+                <PasswordField register={register} />
                 {register && (
                   <>
                     <Field name="address" label="Dirección de referencia" />
+                    <button
+                      type="button"
+                      disabled={locating || busy}
+                      onClick={(e) => locate(e.currentTarget.form)}
+                    >
+                      {locating ? "Buscando ubicación…" : "Usar mi ubicación"}
+                    </button>
                     <div className="fields">
                       <Field name="latitude" label="Latitud" type="number" />
                       <Field name="longitude" label="Longitud" type="number" />
                     </div>
-                    <button
-                      type="button"
-                      className="quiet"
-                      onClick={(e) => locate(e.currentTarget.form)}
-                    >
-                      Usar mi ubicación
-                    </button>
                     <p className="muted">
                       Comprueba que las coordenadas correspondan a la dirección.
                       El rol queda definido al crear la cuenta.
@@ -515,7 +561,7 @@ function App() {
                 </button>
               </form>
             </section>
-          </div>
+          </div>)
         ) : (
           <>
             <section className="heading">
@@ -524,57 +570,34 @@ function App() {
                   {user.role === "company" ? "TU EMPRESA" : "TU RUTA"}
                 </p>
                 <h1>
-                  {user.role === "company"
-                    ? "Organiza tus entregas"
-                    : "Encuentra tu siguiente trabajo"}
+                  {({ jobs: user.role === "company" ? "Organiza tus entregas" : "Encuentra tu siguiente trabajo", network: user.role === "company" ? "Tu red de repartidores" : "Invitaciones a redes", notifications: "Novedades de tus entregas", profile: "Datos de tu cuenta", halcon: "Tu conexión con HALCON" } as Record<string,string>)[tab]}
                 </h1>
               </div>
               {user.role === "company" && (
                 <button
                   className="primary"
                   onClick={() => {
-                    setCreating(!creating);
+                    setCreating(tab === "jobs" ? !creating : true);
                     setTab("jobs");
                   }}
                 >
-                  {creating ? "Cerrar formulario" : "Publicar trabajo"}
+                  {creating && tab === "jobs" ? "Cerrar formulario" : "Publicar trabajo"}
                 </button>
               )}
+              {user.role === "courier" && tab !== "halcon" && tab !== "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
             </section>
-            <nav aria-label="Secciones">
-              {[
-                ["jobs", "Trabajos"],
-                [
-                  "network",
-                  user.role === "company" ? "Mi red" : "Invitaciones",
-                ],
-                ["notifications", "Avisos"],
-                ["profile", "Mi cuenta"],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  aria-current={tab === key ? "page" : undefined}
-                  className={tab === key ? "chosen" : ""}
-                  onClick={() => setTab(key)}
-                >
-                  {label}
-                  {key === "notifications" &&
-                    notices.some((n) => !n.read_at) && (
-                      <span className="dot" aria-label="Sin leer" />
-                    )}
-                </button>
-              ))}
-            </nav>
             {tab === "jobs" && (
               <>
                 {creating && (
                   <section className="panel">
                     <h2>Nuevo trabajo</h2>
                     <p className="muted">
-                      Visible para los repartidores que hayan aceptado tu
-                      invitación. Los horarios se introducen en tu zona local.
+                      Elige si el trabajo es público o exclusivo de tu red.
+                      Los horarios se introducen en tu zona local.
                     </p>
                     <form onSubmit={create}>
+                      <label>Visibilidad del trabajo<select name="visibility" defaultValue="network"><option value="network">Exclusivo de mi red</option><option value="public">Público · todos los repartidores</option></select></label>
+                      <p className="muted">Un trabajo público muestra sus puntos, horarios y tarifa a los repartidores registrados. En CHITA, el GPS del repartidor sólo es visible para la empresa durante el trabajo activo.</p>
                       <Field name="title" label="Título del trabajo" />
                       <label>
                         Descripción
@@ -670,7 +693,7 @@ function App() {
                         El pago se gestiona fuera de CHITA.
                       </p>
                       <button className="primary" disabled={busy}>
-                        Publicar para mi red
+                        Publicar trabajo
                       </button>
                     </form>
                   </section>
@@ -680,13 +703,14 @@ function App() {
                     <h2>
                       {user.role === "company"
                         ? "Mis publicaciones"
-                        : "Trabajos de mi red"}
+                        : "Trabajos disponibles y mis entregas"}
                     </h2>
+                    {user.role === "courier" && <div className="nearby-control"><p className="muted">Primero tus entregas activas; después las recogidas más cercanas a {rankingOrigin ? "tu última ubicación GPS" : "la ubicación de tu perfil"}. Distancia en línea recta; no es tiempo de viaje.</p><button disabled={rankingBusy} onClick={rankNearby}>{rankingBusy ? "Buscando ubicación…" : "Ordenar cerca de mí"}</button></div>}
                     {!jobs.length ? (
                       <div className="empty">
                         {user.role === "company"
                           ? "Invita repartidores y publica tu primer trabajo."
-                          : "Acepta una invitación para ver los trabajos de esa empresa."}
+                          : "No hay trabajos disponibles. Aquí aparecerán los públicos y los exclusivos de las redes que aceptes."}
                       </div>
                     ) : (
                       <div className="joblist">
@@ -703,6 +727,7 @@ function App() {
                             }}
                           >
                             <span className="badge">{statusLabel(j)}</span>
+                            <span className="muted">{j.visibility === "public" ? "Público" : "Exclusivo de red"}{j.pickup_distance_km != null ? ` · ${new Intl.NumberFormat("es", { maximumFractionDigits: 1 }).format(j.pickup_distance_km)} km hasta recogida` : ""}</span>
                             <strong>{j.title}</strong>
                             <span>{j.company?.name || "Mi empresa"}</span>
                             <span className="muted">
@@ -1072,8 +1097,9 @@ function App() {
                 )}
               </section>
             )}
-            {tab === "profile" && (
+            {(tab === "profile" || (tab === "halcon" && user.role === "courier")) && (
               <section className="panel narrow">
+                {tab === "profile" && <>
                 <h2>Mi cuenta</h2>
                 <p>
                   <b>{user.name}</b> ·{" "}
@@ -1081,9 +1107,10 @@ function App() {
                 </p>
                 <p>{user.email}</p>
                 <p>{profile?.address}</p>
-                {user.role === "courier" && (
+                </>}
+                {user.role === "courier" && tab === "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
+                {user.role === "courier" && tab === "halcon" && (
                   <>
-                    <hr />
                     <h2>Seguimiento con HALCON</h2>
                     <p>
                       {linked
@@ -1159,7 +1186,7 @@ function App() {
         CHITA · Coordinación de entregas con HALCON.
         <span>Tarifas y pagos acordados entre las partes.</span>
       </footer>
-    </>
+    </div>
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);

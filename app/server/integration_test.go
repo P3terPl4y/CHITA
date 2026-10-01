@@ -10,6 +10,7 @@ import (
 	"goravel/app/server"
 	"goravel/app/services"
 	"goravel/bootstrap"
+	"goravel/database/migrations"
 	"io"
 	"net/http"
 	"net/url"
@@ -265,6 +266,114 @@ func TestDeliveryAndTenantSecurity(t *testing.T) {
 	company.want(403, "GET", "/api/halcon", nil)
 	courier.want(200, "GET", "/api/profile", nil)
 	company.want(200, "GET", "/api/profile", nil)
+	migration := &migrations.M20261001153005PublicJobs{}
+	if e := migration.Down(); e != nil {
+		t.Fatal("empty-public rollback", e)
+	}
+	if e := migration.Up(); e != nil {
+		t.Fatal("reapply preserving existing network jobs", e)
+	}
+	if row := company.want(200, "GET", path, nil); row["visibility"] != "network" {
+		t.Fatal("legacy job visibility changed")
+	}
+	// Public jobs require no invitation but never expose an assigned job to another courier.
+	outsider := newClient(t, a)
+	outsider.register("public@chita.test", "courier")
+	outsider.want(404, "GET", path, nil)
+	outsider.want(404, "POST", fmt.Sprintf("/api/jobs/%v/accept", newJob["id"]), map[string]any{})
+	invalid := jobInput()
+	invalid["visibility"] = "everyone"
+	company.want(422, "POST", "/api/jobs", invalid)
+	nearInput := jobInput()
+	nearInput["visibility"] = "public"
+	nearInput["pickup_lat"] = 23.11345
+	nearInput["pickup_lng"] = -82.3667
+	nearJob := other.want(201, "POST", "/api/jobs", nearInput)
+	nearPath := fmt.Sprintf("/api/jobs/%v", nearJob["id"])
+	outsider.want(200, "GET", nearPath, nil)
+	company.want(404, "GET", nearPath, nil)
+	outsider.want(404, "GET", nearPath+"/location", nil)
+	outsider.want(404, "POST", nearPath+"/pickup", map[string]any{})
+	var farJob map[string]any
+	for i := 0; i < 31; i++ {
+		farInput := jobInput()
+		farInput["visibility"] = "public"
+		farInput["pickup_lat"] = 24.0 + float64(i)*.01
+		farInput["pickup_lng"] = -82.0
+		farJob = other.want(201, "POST", "/api/jobs", farInput)
+	}
+	listing := outsider.want(200, "GET", "/api/jobs", nil)
+	items := listing["items"].([]any)
+	if listing["total"].(float64) != 32 || len(items) != 30 || items[0].(map[string]any)["id"] != nearJob["id"] {
+		t.Fatalf("global ranking before pagination: %+v", listing)
+	}
+	prior := -1.0
+	for _, item := range items {
+		row := item.(map[string]any)
+		d := row["pickup_distance_km"].(float64)
+		if row["visibility"] != "public" || d < prior {
+			t.Fatal("visibility or distance ordering")
+		}
+		prior = d
+	}
+	page2 := outsider.want(200, "GET", "/api/jobs?page=2", nil)
+	if len(page2["items"].([]any)) != 2 {
+		t.Fatal("pagination total")
+	}
+	farPath := fmt.Sprintf("/api/jobs/%v", farJob["id"])
+	outsider.want(200, "POST", farPath+"/accept", map[string]any{})
+	listing = outsider.want(200, "GET", "/api/jobs?lat=23.11345&lng=-82.3667", nil)
+	if listing["items"].([]any)[0].(map[string]any)["id"] != farJob["id"] {
+		t.Fatal("active job must precede nearest available job")
+	}
+	courier.want(404, "GET", farPath, nil)
+	courier.want(404, "GET", farPath+"/location", nil)
+	company.want(404, "POST", farPath+"/cancel", map[string]any{"note": "Ajeno"})
+	for _, query := range []string{"?lat=NaN&lng=0", "?lat=91&lng=0", "?lat=0", "?lng=0", "?lat=0;DROP&lng=0"} {
+		outsider.want(422, "GET", "/api/jobs"+query, nil)
+	}
+	outsider.want(200, "GET", "/api/jobs?lat=0&lng=0", nil)
+	saved = outsider.token
+	outsider.token = "invalid"
+	outsider.want(403, "POST", nearPath+"/accept", map[string]any{})
+	outsider.token = saved
+	publicRaceInput := jobInput()
+	publicRaceInput["visibility"] = "public"
+	publicRace := other.want(201, "POST", "/api/jobs", publicRaceInput)
+	publicRacePath := fmt.Sprintf("/api/jobs/%v", publicRace["id"])
+	results = make(chan int, 2)
+	for _, c := range []*client{outsider, courier} {
+		wg.Add(1)
+		go func(c *client) {
+			defer wg.Done()
+			s, _, _ := c.req("POST", publicRacePath+"/accept", map[string]any{})
+			results <- s
+		}(c)
+	}
+	wg.Wait()
+	close(results)
+	wins = 0
+	for s := range results {
+		if s == 200 {
+			wins++
+		} else if s != 409 {
+			t.Fatalf("public race status %d", s)
+		}
+	}
+	if wins != 1 {
+		t.Fatal("public assignment race", wins)
+	}
+	if e := migration.Down(); e == nil {
+		t.Fatal("rollback must refuse to erase public visibility")
+	}
+	other.want(200, "POST", nearPath+"/cancel", map[string]any{"note": "Cancelado"})
+	outsider.want(404, "GET", nearPath, nil)
+	expiredPublic := other.want(201, "POST", "/api/jobs", publicRaceInput)
+	if _, e := facades.Orm().Query().Model(&models.Publication{}).Where("id=?", expiredPublic["id"]).Update("expires_at", time.Now().UTC().Add(-time.Minute)); e != nil {
+		t.Fatal(e)
+	}
+	outsider.want(404, "GET", fmt.Sprintf("/api/jobs/%v", expiredPublic["id"]), nil)
+	outsider.want(409, "POST", fmt.Sprintf("/api/jobs/%v/accept", expiredPublic["id"]), map[string]any{})
 	courier.want(204, "POST", "/api/auth/logout", map[string]any{})
 	courier.session()
 	courier.want(401, "GET", "/api/jobs", nil)

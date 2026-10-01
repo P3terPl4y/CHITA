@@ -2,14 +2,17 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/goravel/framework/contracts/database/orm"
 	"goravel/app/facades"
 	"goravel/app/models"
+	"math"
 	"time"
 )
 
 type JobInput struct {
+	Visibility     string   `json:"visibility"`
 	Title          string   `json:"title"`
 	Description    string   `json:"description"`
 	PickupAddress  string   `json:"pickup_address"`
@@ -27,7 +30,14 @@ type JobInput struct {
 }
 
 func (r JobInput) Validate(now time.Time) (*models.Publication, error) {
+	if r.Visibility == "" {
+		r.Visibility = "network"
+	}
+	if r.Visibility != "network" && r.Visibility != "public" {
+		return nil, Fail(422, "Elige visibilidad pública o exclusiva de tu red")
+	}
 	p := &models.Publication{UUID: uuid.NewString(), ReferenceCode: uuid.NewString()[:18], Status: "published", OfferedPriceCents: r.PriceCents, Currency: r.Currency, PackageCount: 1, PaymentMethod: "external", Metadata: "{}"}
+	p.Visibility = r.Visibility
 	var err error
 	for _, field := range []struct {
 		raw      string
@@ -96,15 +106,57 @@ func JobScope(q orm.Query, u *models.User) orm.Query {
 	if u.Role == "company" {
 		return q.Where("EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.owner_user_id=? AND c.status='active' AND c.deleted_at IS NULL)", u.ID)
 	}
-	return q.Where("assigned_courier_id=? OR (status='published' AND expires_at>? AND EXISTS(SELECT 1 FROM company_members m JOIN companies c ON c.id=m.company_id WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted' AND c.status='active' AND c.deleted_at IS NULL))", u.ID, time.Now().UTC(), u.ID)
+	return q.Where("assigned_courier_id=? OR (status='published' AND expires_at>? AND EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.status='active' AND c.deleted_at IS NULL) AND (visibility='public' OR EXISTS(SELECT 1 FROM company_members m WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted')))", u.ID, time.Now().UTC(), u.ID)
 }
-func Jobs(u *models.User, page int) ([]models.Publication, int64, error) {
+
+type JobLocation struct{ Latitude, Longitude float64 }
+
+// Great-circle distance, not a road route or an estimated travel time.
+func PickupDistance(a, b JobLocation) float64 {
+	const radians = math.Pi / 180
+	lat := (b.Latitude - a.Latitude) * radians / 2
+	lng := (b.Longitude - a.Longitude) * radians / 2
+	h := math.Sin(lat)*math.Sin(lat) + math.Cos(a.Latitude*radians)*math.Cos(b.Latitude*radians)*math.Sin(lng)*math.Sin(lng)
+	return 6371 * 2 * math.Asin(math.Sqrt(math.Max(0, math.Min(1, h))))
+}
+
+func Jobs(u *models.User, page int, locations ...JobLocation) ([]models.Publication, int64, error) {
 	if page < 1 || page > 100000 {
 		page = 1
 	}
 	out := make([]models.Publication, 0)
 	var total int64
-	err := JobScope(facades.Orm().Query().Model(&models.Publication{}), u).With("Company").With("Courier").OrderByDesc("id").Paginate(page, 30, &out, &total)
+	q := JobScope(facades.Orm().Query().Model(&models.Publication{}), u).With("Company").With("Courier")
+	var origin *JobLocation
+	if u.Role == "courier" {
+		if len(locations) > 0 {
+			if !ValidPoint(locations[0].Latitude, locations[0].Longitude) {
+				return nil, 0, Fail(422, "Indica coordenadas válidas")
+			}
+			origin = &locations[0]
+		} else {
+			var profile models.CourierProfile
+			if err := facades.Orm().Query().Where("user_id=?", u.ID).First(&profile); err != nil {
+				return nil, 0, err
+			}
+			if profile.ID > 0 && ValidPoint(profile.Latitude, profile.Longitude) {
+				origin = &JobLocation{profile.Latitude, profile.Longitude}
+			}
+		}
+		q = q.OrderByRaw("CASE WHEN status IN ('accepted','picked_up','arrived','delivery_reported') THEN 0 WHEN status='published' THEN 1 ELSE 2 END")
+		if origin != nil {
+			// Only finite, validated numbers enter this fixed SQL expression.
+			q = q.OrderByRaw(fmt.Sprintf("CASE WHEN status='published' THEN acos(least(1.0,greatest(-1.0,sin(radians(%.10f))*sin(radians(pickup_lat))+cos(radians(%.10f))*cos(radians(pickup_lat))*cos(radians(pickup_lng-(%.10f)))))) ELSE 0 END", origin.Latitude, origin.Latitude, origin.Longitude))
+		}
+		q = q.OrderBy("scheduled_pickup_to")
+	}
+	err := q.OrderByDesc("id").Paginate(page, 30, &out, &total)
+	if origin != nil {
+		for i := range out {
+			d := PickupDistance(*origin, JobLocation{out[i].PickupLat, out[i].PickupLng})
+			out[i].PickupDistanceKm = &d
+		}
+	}
 	return out, total, err
 }
 func GetJob(u *models.User, id uint) (*models.Publication, error) {
@@ -147,12 +199,14 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 				return Fail(404, "Trabajo no encontrado")
 			}
 		} else if action == "accept" {
-			var m models.CompanyMember
-			if err := tx.Where("company_id=?", p.CompanyID).Where("user_id=?", u.ID).Where("status=?", "accepted").LockForUpdate().First(&m); err != nil {
-				return err
-			}
-			if m.ID == 0 {
-				return Fail(404, "Trabajo no encontrado")
+			if p.Visibility != "public" {
+				var m models.CompanyMember
+				if err := tx.Where("company_id=?", p.CompanyID).Where("user_id=?", u.ID).Where("status=?", "accepted").LockForUpdate().First(&m); err != nil {
+					return err
+				}
+				if m.ID == 0 {
+					return Fail(404, "Trabajo no encontrado")
+				}
 			}
 			if !p.ExpiresAt.After(time.Now().UTC()) {
 				return Fail(409, "La recogida de este trabajo ha vencido")

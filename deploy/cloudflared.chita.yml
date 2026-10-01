@@ -1,0 +1,15 @@
+tunnel: web-d
+credentials-file: /etc/cloudflared/f7bf05f8-1d54-48ff-9a8b-089af18278a2.json
+
+ingress:
+  - hostname: duohnson.com
+    service: http://localhost:8652
+  - hostname: bufalo.duohnson.com
+    service: http://localhost:3000
+  - hostname: boti.duohnson.com
+    service: http://localhost:7213
+  - hostname: halcon.duohnson.com
+    service: http://localhost:3300
+  - hostname: chita.duohnson.com
+    service: http://127.0.0.1:3330
+  - service: http_status:404

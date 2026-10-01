@@ -62,8 +62,40 @@ func TestWindows(t *testing.T) {
 	if _, e := r.Validate(now); e != nil {
 		t.Fatal(e)
 	}
+	if job, e := r.Validate(now); e != nil || job.Visibility != "network" {
+		t.Fatal("legacy input must stay network-only", e)
+	}
+	r.Visibility = "public"
+	if job, e := r.Validate(now); e != nil || job.Visibility != "public" {
+		t.Fatal("public input", e)
+	}
+	r.Visibility = "everyone; DROP TABLE users"
+	if _, e := r.Validate(now); e == nil {
+		t.Fatal("invalid visibility accepted")
+	}
+	r.Visibility = "network"
 	r.DeliveryTo = r.PickupFrom
 	if _, e := r.Validate(now); e == nil {
 		t.Fatal("invalid window")
+	}
+}
+
+func TestPickupDistance(t *testing.T) {
+	for _, c := range []struct {
+		a, b     JobLocation
+		expected float64
+	}{
+		{JobLocation{0, 0}, JobLocation{0, 0}, 0},
+		{JobLocation{0, 0}, JobLocation{0, 1}, 111.1949266},
+		{JobLocation{0, 179.9}, JobLocation{0, -179.9}, 22.2389853},
+		{JobLocation{0, 0}, JobLocation{0, 180}, 20015.086796},
+	} {
+		d := PickupDistance(c.a, c.b)
+		if math.IsNaN(d) || math.Abs(d-c.expected) > .001 {
+			t.Fatalf("distance %v want %v", d, c.expected)
+		}
+		if math.Abs(d-PickupDistance(c.b, c.a)) > .00001 {
+			t.Fatal("asymmetric distance")
+		}
 	}
 }

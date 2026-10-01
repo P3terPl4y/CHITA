@@ -41,3 +41,18 @@ El rollback completo del esquema se verificó en una base descartable. El rollba
 Los comandos y las precauciones para reproducir las pruebas están en [README.md](README.md). Las pruebas de integración truncan usuarios únicamente cuando se proporciona el indicador explícito y una base cuyo nombre termina en `_validation`.
 
 Se aprobaron 17 pruebas de React en total. Cinco comprueban el GPS: caché reciente, renovación sin movimiento, primera lectura, error de permisos/señal y rechazo de una posición antigua. La integración real también verifica que un halcón sin ninguna posición previa no aparezca artificialmente en 0,0.
+
+## Actualización: trabajos públicos, cercanía y navegación
+
+Resultados posteriores a la primera fase descrita arriba:
+
+- `go test ./...` y `go vet ./...`: aprobados.
+- Integración con PostgreSQL aislado y `-race`: 163 peticiones, cinco cuentas CHITA, pruebas de ambos tipos de publicación y aceptación simultánea pública y exclusiva. Sin carreras detectadas.
+- Público sin invitación visible/aceptable; exclusivo oculto sin consentimiento; empresa ajena sin acceso; trabajo público asignado oculto para otro repartidor; seguimiento no abierto por la visibilidad pública. Cancelados y vencidos excluidos, CSRF inválido rechazado.
+- Ranking global antes de paginar probado con 32 publicaciones públicas, página de 30 y segunda página de dos; un trabajo activo lejano precede al disponible cercano. Coordenadas negativas, cero, no finitas, incompletas y fuera de rango comprobadas. Distancias unitarias verificadas en origen, antimeridiano y puntos opuestos.
+- Migración 13: rollback/reaplicación con trabajos existentes conserva `network`; rollback con publicaciones públicas se rechaza para no borrar su clasificación. Migración aplicada al servicio tras copia privada de PostgreSQL.
+- React: 17 pruebas existentes y compilación TypeScript/Vite aprobadas. Nueve escenarios Playwright verificados contra CHITA aislado: seis de UX/UI y tres de formulario/recorrido, incluyendo entrega exclusiva completa y aceptación pública sin invitación. El fallo inicial del nombre accesible del menú se corrigió; el escenario afectado se repitió y pasó.
+- Publicación HTTPS: los seis escenarios de UX pasaron en el dominio público sin crear datos de producción. Menú modal con cierre, Escape/foco, acceso a HALCON y cambio de ancho; GPS de ranking; carga del logo; ambos temas y axe. Paneles privados y GPS usan respuestas/permisos controlados en estas pruebas de UI.
+- CHITA, SVG y HALCON público respondieron 200. Capturas de navegación superior y lateral revisadas.
+
+El contrato remoto real de HALCON no se repitió en esta ronda: el broker y sus reglas permanecen como en las pruebas de la primera fase. No se hizo una nueva carga de 1000 usuarios ni pruebas con dispositivos físicos.

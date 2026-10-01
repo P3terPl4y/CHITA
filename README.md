@@ -5,8 +5,9 @@ Primera versión funcional para coordinar entregas entre empresas y repartidores
 ## Qué permite
 
 - Crear una cuenta de empresa o repartidor con dirección y coordenadas. Cada rol tiene su propio perfil; el rol no puede cambiarse desde una petición del cliente.
-- La empresa invita por correo a un repartidor registrado. El repartidor acepta antes de ver sus publicaciones.
+- La empresa elige trabajos públicos para todos los repartidores registrados o exclusivos de su red. Para los exclusivos, invita por correo y el repartidor debe aceptar. Los trabajos existentes siguen siendo exclusivos.
 - Publicar trabajos con recogida, entrega, coordenadas, ventanas horarias y tarifa en centavos (USD, CUP o EUR).
+- Ordenar primero las entregas activas del repartidor y después las recogidas disponibles por cercanía, antes de paginar. Por defecto se usa la ubicación del perfil; «Ordenar cerca de mí» solicita GPS para actualizar el orden. Distancia en línea recta, no ruta ni tiempo de viaje.
 - Un solo repartidor puede aceptar un trabajo. La asignación y los cambios de estado se protegen mediante transacciones y bloqueos de filas.
 - Confirmar recogida, llegada y aviso de entrega. La empresa confirma el resultado o solicita revisión indicando el motivo.
 - Consultar avisos dentro de CHITA. Retirar un repartidor de la red no elimina su acceso a trabajos ya aceptados.
@@ -25,6 +26,14 @@ flowchart LR
 ```
 
 La cancelación requiere motivo y sólo se permite antes de recoger. El seguimiento de CHITA está disponible en `accepted`, `picked_up` y `arrived`; se corta al notificar la entrega. Confirmación y coordenadas no constituyen una prueba física de entrega.
+
+## Publicaciones y navegación
+
+`POST /api/jobs` acepta `visibility: "network" | "public"`; omitirla conserva el comportamiento de red. El esquema valida esos dos valores. Los trabajos públicos sólo están disponibles mientras están publicados, no han vencido y su empresa sigue activa. Tras la aceptación, el acceso queda restringido a la empresa propietaria y al repartidor asignado. Ser público no abre el seguimiento GPS ni modifica los permisos de HALCON.
+
+`GET /api/jobs?page=1&lat=23.1&lng=-82.3` acepta un par de coordenadas finitas en rango para ordenar la misma selección autorizada. Sin ese par se usa el perfil del repartidor. Tras prioridad y distancia se desempata por cierre de recogida y por ID. La API devuelve `visibility` y `pickup_distance_km`; no guarda el GPS solicitado para ranking.
+
+La landing está en `/`, el acceso en `/entrar` y el registro en `/registro`, con enlaces de rol. La plataforma tiene navegación superior y menú lateral modal en móvil, tema claro/oscuro/sistema y logo propio. La landing explica visibilidad, cercanía, vinculación, permisos y límites reales.
 
 ## Ejecutar
 
@@ -50,7 +59,7 @@ Usar `APP_ENV=production` y HTTPS para publicación: las cookies cambian a `__Ho
 
 `HALCON_URL=http://127.0.0.1:3300` permite la comunicación interna cuando ambos servicios están en el mismo servidor. HTTP se acepta exclusivamente para loopback; para otro host se exige HTTPS. No se siguen redirecciones. Una URL pública protegida por un intermediario puede bloquear clientes WebSocket de servidor: preferir una ruta interna confiable.
 
-El repartidor vincula su cuenta personal existente de HALCON desde **Mi cuenta**. CHITA:
+El repartidor vincula su cuenta personal existente de HALCON desde **Vincular con HALCON** en el panel o **HALCON** en la navegación. CHITA:
 
 1. Obtiene un token CSRF e inicia una sesión mediante las API oficiales existentes de HALCON.
 2. Comprueba que la cuenta tenga rol `user` y halcón personal. No acepta cuentas de administración o moderación.

@@ -75,6 +75,8 @@ func jobDTO(p *models.Publication) any {
 	if p.Company != nil {
 		m["company"] = fiber.Map{"id": p.Company.ID, "name": p.Company.TradeName}
 	}
+	m["visibility"] = p.Visibility
+	m["pickup_distance_km"] = p.PickupDistanceKm
 	if p.Courier != nil {
 		m["courier"] = fiber.Map{"id": p.Courier.ID, "name": p.Courier.DisplayName}
 	}
@@ -170,7 +172,16 @@ func (d *DeliveryController) Jobs(c fiber.Ctx) error {
 	if page < 1 || page > 100000 {
 		page = 1
 	}
-	p, n, e := services.Jobs(current(c), page)
+	var locations []services.JobLocation
+	if c.Query("lat") != "" || c.Query("lng") != "" {
+		lat, e1 := strconv.ParseFloat(c.Query("lat"), 64)
+		lng, e2 := strconv.ParseFloat(c.Query("lng"), 64)
+		if e1 != nil || e2 != nil || !services.ValidPoint(lat, lng) {
+			return services.Fail(422, "Indica latitud y longitud válidas")
+		}
+		locations = append(locations, services.JobLocation{Latitude: lat, Longitude: lng})
+	}
+	p, n, e := services.Jobs(current(c), page, locations...)
 	if e != nil {
 		return e
 	}

@@ -10,8 +10,7 @@ test.beforeEach(async ({ context }) => {
   );
 });
 async function register(p: Page, role: string, email: string) {
-  await p.goto("/");
-  await p.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await p.goto("/registro");
   await p.getByLabel("Quiero usar CHITA como").selectOption(role);
   await p
     .getByLabel("Tu nombre")
@@ -43,9 +42,7 @@ test("login y registro son accesibles y adaptables", async ({ page }) => {
       page.getByRole("heading", { name: "Coordina la siguiente entrega." }),
     ).toBeVisible();
     await fits(page);
-    await page
-      .getByRole("button", { name: "Crear cuenta", exact: true })
-      .click();
+    await page.getByRole("link", { name: "Crear cuenta", exact: true }).first().click();
     await fits(page);
   }
   const result = await new AxeBuilder({ page }).analyze();
@@ -125,7 +122,7 @@ test("empresa invita, publica y confirma; repartidor acepta y entrega", async ({
   );
   await company.getByRole("button", { name: "Cerrar mapa" }).click();
   await company.getByLabel("Tarifa acordada").fill("12.34");
-  await company.getByRole("button", { name: "Publicar para mi red" }).click();
+  await company.getByRole("button", { name: "Publicar trabajo", exact: true }).last().click();
   await expect(
     company.getByText("Trabajo publicado para tu red"),
   ).toBeVisible();
@@ -179,8 +176,43 @@ test("empresa invita, publica y confirma; repartidor acepta y entrega", async ({
   });
   await company.getByRole("button", { name: "Salir" }).click();
   await expect(
-    company.getByRole("heading", { name: "Bienvenido de nuevo" }),
+    company.getByRole("heading", { name: "Coordina la siguiente entrega." }),
   ).toBeVisible();
   await ctx1.close();
   await ctx2.close();
+});
+
+test("trabajo público permite aceptar sin invitación", async ({ browser }) => {
+  const c1=await browser.newContext(), c2=await browser.newContext();
+  for (const context of [c1,c2]) await context.route("https://tile.openstreetmap.org/**", route => route.fulfill({status:200,contentType:"image/png",body:tileImage}));
+  try {
+    const company=await c1.newPage(), courier=await c2.newPage();
+    const stamp=Date.now();
+    await register(company, "company", `public-company-${stamp}@example.test`);
+    await register(courier, "courier", `public-courier-${stamp}@example.test`);
+    await company.getByRole("button", {name:"Publicar trabajo",exact:true}).click();
+    await company.getByLabel("Visibilidad del trabajo").selectOption("public");
+    const title=`Trabajo público ${stamp}`;
+    await company.getByLabel("Título del trabajo").fill(title);
+    await company.getByLabel("Dirección de entrega",{exact:true}).fill("Destino público 10");
+    await company.getByLabel("Latitud de entrega").fill("23.12");
+    await company.getByLabel("Longitud de entrega").fill("-82.37");
+    const local=(h:number)=>{const d=new Date(Date.now()+h*3600000);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);};
+    await company.getByLabel("Recogida desde").fill(local(1));
+    await company.getByLabel("Recogida hasta").fill(local(2));
+    await company.getByLabel("Entrega desde").fill(local(2));
+    await company.getByLabel("Entrega hasta").fill(local(3));
+    await company.getByLabel("Tarifa acordada").fill("10.50");
+    await company.getByRole("button",{name:"Publicar trabajo",exact:true}).last().click();
+    await expect(company.getByRole("status")).toContainText("Trabajo público publicado");
+    await courier.reload();
+    const card=courier.locator(".jobcard").filter({hasText:title});
+    await expect(card).toContainText("Público");
+    await expect(card).toContainText("km hasta recogida");
+    await card.click();
+    await courier.getByRole("button",{name:"Aceptar trabajo",exact:true}).click();
+    await expect(courier.locator(".detail .badge")).toHaveText("Aceptado");
+    await courier.getByRole("button",{name:"Vincular con HALCON",exact:true}).first().click();
+    await expect(courier.getByLabel("Correo de HALCON")).toBeVisible();
+  } finally {await c1.close();await c2.close();}
 });

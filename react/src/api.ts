@@ -6,6 +6,8 @@ export type User = {
   phone: string;
 };
 export type Job = {
+  visibility: "network" | "public";
+  pickup_distance_km?: number | null;
   id: number;
   title: string;
   description: string;

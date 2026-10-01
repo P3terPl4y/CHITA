@@ -14,8 +14,10 @@ type Publication struct {
 	CompanyID       uint   `gorm:"index;not null" json:"company_id"`
 	CreatedByUserID uint   `gorm:"index;not null" json:"created_by_user_id"`
 
-	Title       string `gorm:"type:varchar(200);not null" json:"title"`
-	Description string `gorm:"type:text" json:"description,omitempty"`
+	Title            string   `gorm:"type:varchar(200);not null" json:"title"`
+	Description      string   `gorm:"type:text" json:"description,omitempty"`
+	Visibility       string   `gorm:"type:varchar(16);not null;default:network" json:"visibility"`
+	PickupDistanceKm *float64 `gorm:"-" json:"pickup_distance_km,omitempty"`
 
 	// Pickup
 	PickupAddressID    *uint   `json:"pickup_address_id,omitempty"`

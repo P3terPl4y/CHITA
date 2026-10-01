@@ -1,12 +1,12 @@
 [Unit]
-Description=CHITA local Go backend and React client
+Description=CHITA Go backend and React client
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=%h/CHITA
 ExecStart=%h/CHITA/storage/bin/chita
-Environment=APP_ENV=local
+Environment=APP_ENV=production
 Environment=APP_HOST=127.0.0.1
 Environment=APP_PORT=3330
 Environment=HALCON_URL=http://127.0.0.1:3300

@@ -1,0 +1,53 @@
+import { RoutePreview } from "./RoutePreview";
+
+export function Landing() {
+  return <div className="landing">
+    <section className="landing-hero" aria-labelledby="hero-title">
+      <div className="intro">
+        <p className="eyebrow">EMPRESAS + REPARTIDORES</p>
+        <h1 id="hero-title">Coordina la <span className="hero-accent">siguiente entrega.</span></h1>
+        <p>Tu negocio. Tu red. Tu siguiente ruta. Conecta los trabajos con las personas que los llevan a destino.</p>
+        <div className="hero-actions"><a className="cta-yellow" href="/registro">Crear cuenta <span aria-hidden="true">↗</span></a><a className="cta-outline" href="#como-funciona">Cómo funciona <span aria-hidden="true">↓</span></a></div>
+        <p className="hero-note">Para empresas y repartidores. Horarios, tarifa y confirmación en un mismo lugar.</p>
+      </div>
+      <div className="landing-visual">
+        <div className="visual-caption"><span>DE LA RECOGIDA A LA ENTREGA</span><span aria-hidden="true">↗</span></div>
+        <RoutePreview />
+        <div className="visual-steps" aria-label="Etapas del trabajo"><span>01 · Publica</span><span>02 · Reparte</span><span>03 · Confirma</span></div>
+        <p>Ubicación mediante HALCON durante el trabajo activo.</p>
+      </div>
+    </section>
+    <section className="landing-section" id="para-quien" aria-labelledby="roles-title">
+      <p className="eyebrow">DOS ROLES. UN MISMO RECORRIDO.</p>
+      <h2 id="roles-title">Cada entrega empieza con una conexión.</h2>
+      <div className="role-cards">
+        <article className="role-card"><span className="role-icon" aria-hidden="true">↗</span><h3>Tu negocio, en movimiento.</h3><p>Invita repartidores a tu red. Publica recogida, destino, horarios y tarifa. Confirma la entrega cuando la hayas comprobado.</p><a href="/registro?rol=empresa">Soy empresa <span aria-hidden="true">→</span></a></article>
+        <article className="role-card"><span className="role-icon yellow" aria-hidden="true">→</span><h3>Tu siguiente trabajo, a la vista.</h3><p>Acepta invitaciones, consulta trabajos públicos y de tu red y elige cuáles realizar. Informa la recogida, la llegada y la entrega.</p><a href="/registro?rol=repartidor">Soy repartidor <span aria-hidden="true">→</span></a></article>
+      </div>
+    </section>
+    <section className="landing-section steps-section" id="como-funciona" aria-labelledby="steps-title">
+      <p className="eyebrow">UN FLUJO CLARO</p><h2 id="steps-title">Menos pasos sueltos. Más coordinación.</h2>
+      <ol className="landing-steps">
+        <li><span>01</span><h3>Forma tu red</h3><p>Crea tu cuenta. Puedes empezar con trabajos públicos o aceptar invitaciones para acceder a trabajos exclusivos.</p></li>
+        <li><span>02</span><h3>Acuerda el recorrido</h3><p>Consulta los puntos, las ventanas de horario y la tarifa antes de aceptar.</p></li>
+        <li><span>03</span><h3>Cierra la entrega</h3><p>El repartidor informa la entrega y la empresa la confirma o solicita una revisión.</p></li>
+      </ol>
+    </section>
+    <section className="landing-section honest-section" aria-labelledby="tracking-title">
+      <div><p className="eyebrow">CONECTADO CON HALCON</p><h2 id="tracking-title">La ubicación tiene contexto.</h2><p>La empresa puede consultar la última posición del repartidor vinculado durante un trabajo activo. Compartirla requiere permiso de ubicación, conexión y la app abierta.</p></div>
+      <div className="limits-card"><h3>Lo que debes saber</h3><p>CHITA coordina trabajos. No procesa pagos ni garantiza tiempos de entrega.</p><p>La tarifa y el pago se acuerdan entre las partes. No hay garantía de seguimiento GPS en segundo plano.</p></div>
+    </section>
+    <section className="landing-section" aria-labelledby="guide-title">
+      <p className="eyebrow">APRENDE A USAR CHITA</p><h2 id="guide-title">Lo que necesitas para tu primer trabajo.</h2>
+      <div className="landing-guide">
+        <details><summary>¿Público o exclusivo de una red?</summary><p>La empresa elige al publicar. Un trabajo público disponible puede verlo y aceptarlo cualquier repartidor registrado. Uno exclusivo sólo está disponible para quienes hayan aceptado una invitación de esa empresa. Los trabajos existentes siguen siendo exclusivos.</p></details>
+        <details><summary>¿Cómo se ordenan los trabajos?</summary><p>Primero aparecen tus entregas activas. Después, las recogidas disponibles más cercanas a la ubicación de tu perfil. Usa «Ordenar cerca de mí» para actualizar el orden con tu GPS. Las distancias son en línea recta, no tiempos de viaje; los horarios siguen siendo responsabilidad de las partes.</p></details>
+        <details><summary>¿Cómo vinculo HALCON?</summary><p>Entra como repartidor y pulsa «Vincular con HALCON» o abre HALCON en el menú. Usa una cuenta personal de HALCON. La sesión cifrada dura como máximo 25 minutos y puede renovarse. Vincular la cuenta no activa el GPS por sí solo.</p></details>
+        <details><summary>¿Quién puede ver mi ubicación?</summary><p>En CHITA, la empresa del trabajo activo puede consultar la última posición de tu HALCON vinculado. Debes activar el GPS dentro del trabajo. Los destinatarios y moderadores configurados en HALCON conservan sus permisos. Puedes detener los nuevos envíos desde el trabajo.</p></details>
+        <details><summary>¿Aceptar crea un compromiso?</summary><p>El trabajo se asigna a un solo repartidor. Revisa tarifa, direcciones y horarios antes de aceptar. Tras recoger y llegar al destino, informa la entrega. La empresa debe comprobarla y confirmarla; también puede solicitar una revisión.</p></details>
+        <details><summary>¿Qué necesito en el móvil?</summary><p>Un navegador con conexión y permiso de ubicación. El botón Menú abre las secciones. Para compartir GPS, mantén la app abierta: el navegador puede pausar los envíos al bloquear la pantalla. CHITA es una web adaptable; no procesa pagos.</p></details>
+      </div>
+    </section>
+    <section className="landing-final"><div><p>EL SIGUIENTE PASO ES TUYO</p><h2>Empieza por tu primera conexión.</h2></div><a className="cta-yellow" href="/registro">Empezar con CHITA <span aria-hidden="true">↗</span></a></section>
+  </div>;
+}
