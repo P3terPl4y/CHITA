@@ -124,7 +124,7 @@ Referencias utilizadas: [ORM Goravel](https://www.goravel.dev/orm/getting-starte
 
 Los mapas usan la URL oficial y una política de referencia que envía sólo el origen al proveedor. Se respeta la caché normal del navegador. Las pruebas repetidas de navegador usan imágenes de mapa controladas para no descargar mosaicos del servicio comunitario en cada ejecución. Política: https://operations.osmfoundation.org/policies/tiles/.
 
-En este entorno se instaló un servicio de usuario `chita.service` para arranque **local** en 127.0.0.1:3330. Su plantilla está en `deploy/chita.service`. Se administra con `systemctl --user status|restart|stop chita.service`. HALCON continúa en su servicio separado. No hay publicación pública de CHITA configurada en esta entrega.
+En este entorno se instaló un servicio de usuario `chita.service` para arranque **local** en 127.0.0.1:3330. Su plantilla está en `deploy/chita.service`. Se administra con `systemctl --user status|restart|stop chita.service`. HALCON continúa en su servicio separado. CHITA está publicado en https://chita.duohnson.com mediante el túnel Cloudflare configurado en el servidor.
 
 ### Administración
 
@@ -152,3 +152,17 @@ CHITA_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=55439 DB_DATABASE=chita_validation
 ```
 
 `react/e2e/admin.spec.ts` verifica ambos temas, navegación móvil, accesibilidad y CRUD real. La prueba real exige `CHITA_ADMIN_BROWSER=1`, el servidor aislado en el puerto 3340 y una cuenta ficticia `admin-browser@chita.test` con la contraseña de prueba indicada en ese archivo. Nunca crees esa cuenta en producción. Las demás pruebas de apariencia usan respuestas simuladas y no modifican datos.
+
+### Mapas, propuestas y calificaciones
+
+Los formularios de registro, perfil, trabajos y administración permiten elegir puntos en el mapa. El punto rellena latitud y longitud y solicita una dirección aproximada, que siempre puede corregirse manualmente. Los recorridos y direcciones guardados se muestran también en mapas. La dirección sugerida no sustituye las indicaciones de acceso del destinatario.
+
+La geocodificación inversa usa `GEOCODER_URL` (por defecto `https://photon.komoot.io`). Sólo envía coordenadas, limita las consultas a una por segundo por proceso y mantiene hasta 512 resultados durante 24 horas. Si el proveedor falla o limita las consultas, las coordenadas se conservan y se puede escribir la dirección. Para mayor tráfico, configura una instancia propia de [Photon](https://github.com/komoot/photon); su servidor público no garantiza disponibilidad. No se usa el servicio público de Nominatim para el seguimiento.
+
+El repartidor activa voluntariamente su disponibilidad. Mientras la app está abierta, envía su posición cada 30 segundos. La visibilidad caduca después de cinco minutos sin actualización y termina al detenerla, cerrar sesión o aceptar un trabajo. Un identificador de consentimiento evita que una actualización retrasada reactive una disponibilidad detenida. El navegador puede suspender la localización en segundo plano; este mecanismo no garantiza seguimiento con la app cerrada. HALCON sigue siendo la integración separada de seguimiento de entregas.
+
+Las empresas pueden buscar repartidores disponibles en un radio máximo de 50 km. Se ordenan por distancia y no se revelan correos, teléfonos ni credenciales. Una propuesta reserva un trabajo publicado durante un máximo de dos minutos (o hasta el fin de recogida, si ocurre antes). El repartidor puede aceptar o rechazar; la empresa puede retirarla. Mientras esté vigente, otro repartidor no puede aceptar ese trabajo. Una propuesta individual permite ver ese trabajo fuera de una red sin incorporar al repartidor a la red.
+
+Una empresa sólo puede calificar a un repartidor después de tres entregas completadas y confirmadas por esa misma empresa. Los trabajos aceptados, cancelados o pendientes de confirmación no cuentan. La puntuación admite de una a cinco estrellas y un comentario; cada empresa tiene una calificación por repartidor, que puede actualizar sin aumentar artificialmente el promedio. El historial archivado conserva las entregas confirmadas.
+
+`app/server/dispatch_integration_test.go` comprueba permisos, caducidad, consentimiento, reservas simultáneas y calificaciones. `react/e2e/location_dispatch.spec.ts` prueba mapas, respuestas atrasadas, ambos temas y pantallas móviles; su flujo real de tres entregas requiere `CHITA_REAL_DISPATCH=1` y el servidor aislado en 3340. No habilites pruebas reales sobre producción.

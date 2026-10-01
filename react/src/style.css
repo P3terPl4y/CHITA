@@ -785,3 +785,19 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
 .admin-dialog h2 { overflow-wrap: anywhere; }
 .admin-panel .pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; margin-block: 1.5rem; }
 @media (max-width: 48rem) { .admin-record { flex-direction: column; align-items: stretch; } .admin-record .actions { max-width: none; } .admin-panel .heading { flex-wrap: wrap; } }
+
+.location-picker { min-width: 0; margin-block: 1rem; }
+.location-picker .map, .profile-location .map { margin-block: .75rem; }
+.availability-strip { display: flex; align-items: center; gap: 1rem; justify-content: space-between; padding: 1rem; margin-block: 1rem; border: .0625rem solid var(--border); border-radius: 1rem; background: var(--surface); }
+.availability-strip > div { flex: 1; min-width: 0; }
+.availability-strip p { margin-block: .4rem; }
+.availability-strip > button { flex: 0 1 16rem; }
+.nearby-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,20rem),1fr)); gap: 1rem; }
+.nearby-card, .offer-card { border: .0625rem solid var(--border); border-radius: 1rem; padding: 1rem; overflow-wrap: anywhere; }
+.nearby-card.selected { outline: .15rem solid var(--brand); }
+.offer-card { display: flex; justify-content: space-between; gap: 1rem; margin-block: 1rem; }
+.offer-card > div { min-width: 0; }
+.offer-clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+.rating-card { padding-block: 1rem; border-block-start: .0625rem solid var(--border); margin-block-start: 1rem; }
+.rating-card h3 { font-size: 1.1rem; }
+@media (max-width: 48rem) { .availability-strip, .offer-card { flex-direction: column; align-items: stretch; } .availability-strip > button { flex: auto; } }

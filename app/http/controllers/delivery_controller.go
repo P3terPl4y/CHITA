@@ -75,6 +75,9 @@ func jobDTO(p *models.Publication) any {
 	if p.Company != nil {
 		m["company"] = fiber.Map{"id": p.Company.ID, "name": p.Company.TradeName}
 	}
+	if p.PendingOffer != nil {
+		m["pending_offer"] = offerDTO(p.PendingOffer)
+	}
 	m["visibility"] = p.Visibility
 	m["pickup_distance_km"] = p.PickupDistanceKm
 	if p.Courier != nil {
@@ -142,6 +145,12 @@ func (d *DeliveryController) Logout(c fiber.Ctx) error {
 	token, _ := session.FromContext(c).Get("auth_grant").(string)
 	if err := services.Revoke(current(c).ID, token); err != nil {
 		return err
+	}
+	if current(c).Role == "courier" {
+		disabled := false
+		if e := services.Availability(current(c), services.AvailabilityInput{Enabled: &disabled}); e != nil {
+			return e
+		}
 	}
 	d.Tracking.Stop(current(c).ID)
 	if e := session.FromContext(c).Destroy(); e != nil {

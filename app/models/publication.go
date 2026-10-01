@@ -8,7 +8,8 @@ import (
 type Publication struct {
 	orm.Model
 	orm.SoftDeletes
-	AdminVersion int `gorm:"not null;default:1" json:"-"`
+	PendingOffer *DeliveryOffer `gorm:"-" json:"-"`
+	AdminVersion int            `gorm:"not null;default:1" json:"-"`
 
 	UUID            string `gorm:"type:uuid;uniqueIndex;not null" json:"uuid"`
 	ReferenceCode   string `gorm:"type:varchar(20);uniqueIndex;not null" json:"reference_code"`

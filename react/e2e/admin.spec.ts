@@ -136,6 +136,12 @@ test("CRUD de empresa, repartidor y trabajo desde el navegador", async ({
     process.env.CHITA_ADMIN_BROWSER !== "1",
     "requires isolated database and local admin fixture",
   );
+  await page.route("**/api/maps/reverse?*", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ address: "Dirección desde el mapa" }),
+    }),
+  );
   const stamp = Date.now();
   await page.goto("/entrar");
   await page
@@ -174,6 +180,12 @@ test("CRUD de empresa, repartidor y trabajo desde el navegador", async ({
       .fill("Calle validación 10");
     await page.getByLabel("Latitud", { exact: true }).fill("23.1");
     await page.getByLabel("Longitud", { exact: true }).fill("-82.3");
+    await page
+      .getByRole("button", { name: "Seleccionar centro del mapa", exact: true })
+      .click();
+    await expect(page.getByLabel("Dirección", { exact: true })).toHaveValue(
+      "Dirección desde el mapa",
+    );
     await page
       .getByLabel("Contraseña inicial", { exact: true })
       .fill("UserBrowser123!");
@@ -246,12 +258,23 @@ test("CRUD de empresa, repartidor y trabajo desde el navegador", async ({
   await page
     .getByLabel("Título", { exact: true })
     .fill(`Entrega Browser ${stamp}`);
-  await page.getByLabel("Dirección de recogida").fill("Origen 1");
-  await page.getByLabel("Dirección de entrega").fill("Destino 2");
+  await page
+    .getByLabel("Dirección de recogida", { exact: true })
+    .fill("Origen 1");
+  await page
+    .getByLabel("Dirección de entrega", { exact: true })
+    .fill("Destino 2");
   for (const label of ["Latitud de recogida", "Latitud de entrega"])
     await page.getByLabel(label).fill("23.1");
   for (const label of ["Longitud de recogida", "Longitud de entrega"])
     await page.getByLabel(label).fill("-82.3");
+  await page
+    .getByRole("button", { name: "Seleccionar centro del mapa", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByLabel("Dirección de recogida", { exact: true }),
+  ).toHaveValue("Dirección desde el mapa");
   await page.getByLabel("Tarifa", { exact: true }).fill("12.50");
   await page
     .getByLabel("Motivo del cambio")

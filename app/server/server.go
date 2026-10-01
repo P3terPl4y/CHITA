@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func New(storage fiber.Storage, production bool, t *services.Tracking) *fiber.App {
+func New(storage fiber.Storage, production bool, t *services.Tracking, geocoders ...*services.Geocoder) *fiber.App {
 	app := fiber.New(fiber.Config{TrustProxy: true, ProxyHeader: fiber.HeaderXForwardedFor, TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true}, BodyLimit: 32 * 1024, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, ErrorHandler: func(c fiber.Ctx, e error) error {
 		code := 500
 		msg := "No se pudo completar la operación"
@@ -58,7 +58,11 @@ func New(storage fiber.Storage, production bool, t *services.Tracking) *fiber.Ap
 	app.Use("/api", csrf.New(csrf.Config{CookieName: csrfCookie, CookieSecure: production, CookieHTTPOnly: true, CookieSameSite: "Lax", Session: store, Extractor: extractors.FromHeader("X-CSRF-Token"), ErrorHandler: func(c fiber.Ctx, e error) error {
 		return services.Fail(403, "La sesión de seguridad cambió; actualiza la página")
 	}}))
-	routes.Web(app, controllers.NewDeliveryController(t))
+	geo := services.NewGeocoder("")
+	if len(geocoders) > 0 && geocoders[0] != nil {
+		geo = geocoders[0]
+	}
+	routes.Web(app, controllers.NewDeliveryController(t), geo)
 	app.Use(static.New("./react/dist", static.Config{IndexNames: []string{"index.html"}}))
 	app.Get("/*", func(c fiber.Ctx) error { return c.SendFile("./react/dist/index.html") })
 	return app

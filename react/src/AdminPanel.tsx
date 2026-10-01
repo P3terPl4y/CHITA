@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, cents, labels, type Job } from "./api";
+import { LocationPicker, PointMap } from "./Map";
 import { CompanyChoice } from "./CompanyChoice";
 import { PasswordField } from "./PasswordField";
 
@@ -465,6 +466,20 @@ export function AdminPanel({
                     </select>
                   </label>
                 </div>
+                <LocationPicker
+                  prefix="pickup"
+                  center={[
+                    job?.pickup_lat ?? 23.1134,
+                    job?.pickup_lng ?? -82.3667,
+                  ]}
+                />
+                <LocationPicker
+                  prefix="dropoff"
+                  center={[
+                    job?.dropoff_lat ?? 23.1134,
+                    job?.dropoff_lng ?? -82.3667,
+                  ]}
+                />
               </>
             ) : (
               <>
@@ -513,6 +528,12 @@ export function AdminPanel({
                     "number",
                   )}
                 </div>
+                <LocationPicker
+                  center={[
+                    account?.latitude ?? 23.1134,
+                    account?.longitude ?? -82.3667,
+                  ]}
+                />
                 <PasswordField
                   name="password"
                   label={
@@ -568,6 +589,30 @@ export function AdminPanel({
       {detail && (
         <section className="panel">
           <h2>{recordName(detail)}</h2>
+          <PointMap
+            points={
+              jobRow(detail)
+                ? [
+                    {
+                      latitude: detail.pickup_lat,
+                      longitude: detail.pickup_lng,
+                      label: detail.pickup_address,
+                    },
+                    {
+                      latitude: detail.dropoff_lat,
+                      longitude: detail.dropoff_lng,
+                      label: detail.dropoff_address,
+                    },
+                  ]
+                : [
+                    {
+                      latitude: detail.latitude,
+                      longitude: detail.longitude,
+                      label: detail.address,
+                    },
+                  ]
+            }
+          />
           <dl className="admin-detail">
             {Object.entries(detail)
               .filter(

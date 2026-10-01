@@ -46,7 +46,7 @@ func serve() error {
 	defer tracking.Close()
 	store := redis.New(redis.Config{Host: fmt.Sprint(c.Env("REDIS_HOST", "127.0.0.1")), Port: integer("REDIS_PORT", 6379), Username: fmt.Sprint(c.Env("REDIS_USERNAME", "")), Password: fmt.Sprint(c.Env("REDIS_PASSWORD", "")), Database: integer("REDIS_DB", 0)})
 	defer store.Close()
-	app := server.New(store, c.GetString("app.env") == "production", tracking)
+	app := server.New(store, c.GetString("app.env") == "production", tracking, services.NewGeocoder(fmt.Sprint(c.Env("GEOCODER_URL", "https://photon.komoot.io"))))
 	host := fmt.Sprint(c.Env("APP_HOST", "127.0.0.1"))
 	address := net.JoinHostPort(host, strconv.Itoa(integer("APP_PORT", 3330)))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

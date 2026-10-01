@@ -34,6 +34,8 @@ func Boot() contractsfoundation.Application {
 					&models.PublicationEvent{},
 					&models.PublicationTrackingLink{},
 					&models.Review{},
+					&models.DeliveryOffer{},
+					&models.CourierRating{},
 				},
 			})
 		}).

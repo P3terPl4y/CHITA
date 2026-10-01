@@ -3,6 +3,9 @@ import { ThemePicker } from "./Theme";
 import { Landing } from "./Landing";
 import { PasswordField } from "./PasswordField";
 import { AdminPanel } from "./AdminPanel";
+import { CompanyDiscovery, CourierAvailability, OffersPanel } from "./Dispatch";
+import { RatingCard } from "./RatingCard";
+import { ProfileLocation } from "./ProfileLocation";
 import { Navigation } from "./Navigation";
 import {
   useEffect,
@@ -84,7 +87,6 @@ function App() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [locating, setLocating] = useState(false),
     [register, setRegister] = useState(window.location.pathname === "/registro"),
     [role, setRole] = useState(new URLSearchParams(window.location.search).get("rol") === "empresa" ? "company" : "courier"),
     [tab, setTab] = useState("jobs"),
@@ -308,32 +310,6 @@ function App() {
       setNotice("Sesión iniciada");
     });
   }
-  function locate(form: HTMLFormElement | null) {
-    if (locating) return;
-    if (!navigator.geolocation) {
-      setError("Este navegador no ofrece ubicación");
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        setLocating(false);
-        if (form) {
-          (form.elements.namedItem("latitude") as HTMLInputElement).value =
-            String(p.coords.latitude);
-          (form.elements.namedItem("longitude") as HTMLInputElement).value =
-            String(p.coords.longitude);
-        }
-      },
-      () => {
-        setLocating(false);
-        setError(
-          "No se pudo obtener tu ubicación. Puedes introducir las coordenadas.",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 },
-    );
-  }
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const r = Object.fromEntries(new FormData(e.currentTarget));
@@ -541,17 +517,11 @@ function App() {
                 {register && (
                   <>
                     <Field name="address" label="Dirección de referencia" />
-                    <button
-                      type="button"
-                      disabled={locating || busy}
-                      onClick={(e) => locate(e.currentTarget.form)}
-                    >
-                      {locating ? "Buscando ubicación…" : "Usar mi ubicación"}
-                    </button>
                     <div className="fields">
                       <Field name="latitude" label="Latitud" type="number" />
                       <Field name="longitude" label="Longitud" type="number" />
                     </div>
+                    <LocationPicker center={[23.1134,-82.3667]} />
                     <p className="muted">
                       Comprueba que las coordenadas correspondan a la dirección.
                       El rol queda definido al crear la cuenta.
@@ -568,13 +538,14 @@ function App() {
           <AdminPanel tab={tab} select={setTab} endSession={() => window.dispatchEvent(new Event("chita-session-ended"))} />
         ) : (
           <>
+ {user.role==="courier"&&<CourierAvailability hasActiveJob={jobs.some(j=>["accepted","picked_up","arrived","delivery_reported"].includes(j.status))}/>}
             <section className="heading">
               <div>
                 <p className="eyebrow">
                   {user.role === "company" ? "TU EMPRESA" : "TU RUTA"}
                 </p>
                 <h1>
-                  {({ jobs: user.role === "company" ? "Organiza tus entregas" : "Encuentra tu siguiente trabajo", network: user.role === "company" ? "Tu red de repartidores" : "Invitaciones a redes", notifications: "Novedades de tus entregas", profile: "Datos de tu cuenta", halcon: "Tu conexión con HALCON" } as Record<string,string>)[tab]}
+                  {({ jobs: user.role === "company" ? "Organiza tus entregas" : "Encuentra tu siguiente trabajo", network: user.role === "company" ? "Tu red de repartidores" : "Invitaciones a redes", notifications: "Novedades de tus entregas", profile: "Datos de tu cuenta", nearby:"Repartidores cerca de la recogida", offers:"Propuestas con tiempo de respuesta", halcon: "Tu conexión con HALCON" } as Record<string,string>)[tab]}
                 </h1>
               </div>
               {user.role === "company" && (
@@ -590,6 +561,8 @@ function App() {
               )}
               {user.role === "courier" && tab !== "halcon" && tab !== "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
             </section>
+ {tab==="offers"&&<OffersPanel user={user} changed={refresh} openJob={job=>{setSelected(job);setTab("jobs")}}/>}
+ {tab==="nearby"&&user.role==="company"&&<CompanyDiscovery jobs={jobs} selected={selected} profile={profile} choose={setSelected} changed={refresh}/>}
             {tab === "jobs" && (
               <>
                 {creating && (
@@ -795,7 +768,10 @@ function App() {
                             Repartidor: <b>{selected.courier.name}</b>
                           </p>
                         )}
-                        <Map job={selected} position={position} />
+{user.role==="company"&&selected.status==="published"&&<button onClick={()=>setTab("nearby")}>Buscar repartidores para este trabajo</button>}
+ {selected.pending_offer&&<p className="notice">Propuesta reservada hasta {date(selected.pending_offer.expires_at)}. <button onClick={()=>setTab("offers")}>Ver propuesta</button></p>}
+ {user.role==="company"&&selected.assigned_courier_id&&<RatingCard courierID={selected.assigned_courier_id} refreshKey={`${selected.id}:${selected.status}`}/>}
+ <Map job={selected} position={position} />
                         {active(selected.status) && (
                           <div className="tracking">
                             <p>
@@ -860,7 +836,7 @@ function App() {
                               <button
                                 className="primary"
                                 disabled={busy || expired(selected)}
-                                onClick={() => action("accept")}
+                                onClick={() => selected.pending_offer ? run(async()=>{await api(`/offers/${selected.pending_offer!.id}/accept`,"POST",{});await refresh();setSelected(await api<Job>(`/jobs/${selected.id}`))}) : action("accept")}
                               >
                                 Aceptar trabajo
                               </button>
@@ -1111,6 +1087,8 @@ function App() {
                 </p>
                 <p>{user.email}</p>
                 <p>{profile?.address}</p>
+ {user.role==="courier"&&<RatingCard courierID={user.id} readonly/>}
+ {profile&&<ProfileLocation profile={profile} saved={async()=>{const r=await api<{profile:typeof profile}>("/profile");setProfile(r.profile)}}/>}
                 </>}
                 {user.role === "courier" && tab === "profile" && <button onClick={() => setTab("halcon")}>{linked ? "Gestionar HALCON" : "Vincular con HALCON"}</button>}
                 {user.role === "courier" && tab === "halcon" && (

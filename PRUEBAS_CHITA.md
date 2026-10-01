@@ -56,3 +56,14 @@ Resultados posteriores a la primera fase descrita arriba:
 - CHITA, SVG y HALCON público respondieron 200. Capturas de navegación superior y lateral revisadas.
 
 El contrato remoto real de HALCON no se repitió en esta ronda: el broker y sus reglas permanecen como en las pruebas de la primera fase. No se hizo una nueva carga de 1000 usuarios ni pruebas con dispositivos físicos.
+
+## Actualización: mapas, propuestas y calificaciones (2026-10-01)
+
+- `go test ./...` y `go vet ./...` aprobados. Pruebas de servidor y servicios con PostgreSQL aislado y `-race` aprobadas, sin carreras detectadas. Se conservaron los flujos anteriores de trabajos públicos y exclusivos y el CRUD administrativo.
+- Nueva integración: ubicación del perfil, validación de coordenadas y campos, roles, GPS con consentimiento revocable, actualizaciones atrasadas, orden por distancia, privacidad de DTO, reserva única concurrente, rechazo/retirada/caducidad de propuestas, y tres entregas confirmadas antes de calificar. Se rechazaron calificaciones prematuras, de empresas sin las entregas requeridas y valores fuera de rango; actualizar una calificación conserva una sola contribución al promedio.
+- React: 17 pruebas unitarias aprobadas y compilación TypeScript/Vite aprobada. Navegador local: cuatro escenarios de mapas/disponibilidad/propuestas y un flujo real de tres entregas con calificación, además de los recorridos anteriores de entrega y el CRUD administrativo real. El CRUD verifica ahora selección desde el mapa en cuentas y trabajos.
+- Se corrigieron selectores antiguos de pruebas que eran ambiguos al añadir regiones de mapa y mensajes de estado. Los recorridos afectados se repitieron y pasaron.
+- Versión pública: 11 escenarios Playwright aprobados (mapas, paneles, navegación, temas, responsive y comprobaciones axe). Los dos escenarios que crean registros reales se omitieron deliberadamente en producción; sí se ejecutaron en el servidor aislado. Las respuestas privadas y los mosaicos repetidos se controlan en estas pruebas de UI.
+- Respaldo privado de PostgreSQL y de la versión anterior antes de publicar. Migraciones 15 y 16 aplicadas. CHITA y HALCON público responden 200; búsqueda cercana sin sesión responde 401. Una consulta real del nuevo endpoint devolvió la dirección del proveedor Photon.
+
+Esta ronda no repitió el contrato remoto completo de HALCON ni una carga de 1000 usuarios. No verifica dispositivos físicos, GPS en segundo plano ni disponibilidad continua del proveedor externo. La posición cercana requiere consentimiento y expira tras cinco minutos sin actualización; una dirección sugerida puede corregirse manualmente.

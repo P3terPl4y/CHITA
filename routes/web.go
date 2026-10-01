@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
-func Web(app *fiber.App, d *controllers.DeliveryController) {
+func Web(app *fiber.App, d *controllers.DeliveryController, geo *services.Geocoder) {
+	dispatch := &controllers.DispatchController{Geocoder: geo}
 	api := app.Group("/api")
 	api.Get("/session", d.Session)
 	reached := func(c fiber.Ctx) error {
 		return services.Fail(429, "Demasiadas solicitudes; espera un minuto antes de volver a intentarlo")
 	}
 	authLimit := limiter.New(limiter.Config{Max: 12, Expiration: time.Minute, LimitReached: reached})
+	api.Get("/maps/reverse", limiter.New(limiter.Config{Max: 20, Expiration: time.Minute, LimitReached: reached}), dispatch.Reverse)
 	api.Post("/auth/register", authLimit, d.Register)
 	api.Post("/auth/login", authLimit, d.Login)
 	protected := api.Group("", controllers.Require)
@@ -36,6 +38,14 @@ func Web(app *fiber.App, d *controllers.DeliveryController) {
 	admin.Post("/:entity/:id/:action", a.Change)
 	protected.Post("/auth/logout", d.Logout)
 	protected.Get("/profile", d.Profile)
+	protected.Put("/profile/location", dispatch.Location)
+	protected.Put("/availability", dispatch.Availability)
+	protected.Get("/couriers/nearby", dispatch.Nearby)
+	protected.Get("/couriers/:id/rating", dispatch.Rating)
+	protected.Put("/couriers/:id/rating", dispatch.Rating)
+	protected.Get("/offers", dispatch.Offers)
+	protected.Post("/offers/:id/:action", dispatch.Respond)
+	protected.Post("/jobs/:id/offer", dispatch.Propose)
 	protected.Get("/jobs", d.Jobs)
 	protected.Post("/jobs", d.Create)
 	protected.Get("/jobs/:id/location", d.Position)

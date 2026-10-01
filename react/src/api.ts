@@ -6,6 +6,12 @@ export type User = {
   phone: string;
 };
 export type Job = {
+  pending_offer?: {
+    id: number;
+    courier_user_id: number;
+    expires_at: string;
+    status: string;
+  };
   visibility: "network" | "public";
   pickup_distance_km?: number | null;
   id: number;
@@ -48,6 +54,15 @@ export type Position = {
   active: boolean;
   last_seen: string | null;
 };
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+    this.name = "APIError";
+  }
+}
 let csrf = "";
 let authenticated = false;
 export async function session() {
@@ -80,7 +95,10 @@ export async function api<T>(
     const x = await r
       .json()
       .catch(() => ({ error: "No se pudo conectar con CHITA" }));
-    throw new Error(x.error || "No se pudo completar la operación");
+    throw new APIError(
+      x.error || "No se pudo completar la operación",
+      r.status,
+    );
   }
   return r.status === 204 ? (undefined as T) : r.json();
 }

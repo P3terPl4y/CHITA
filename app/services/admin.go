@@ -318,6 +318,9 @@ func AdminSaveAccount(u *models.User, entity string, id uint, input AdminAccount
 			return e
 		}
 		if !*input.Enabled || input.Password != "" {
+			if e := stopAccountDiscovery(tx, entity, id, a.ID); e != nil {
+				return e
+			}
 			if _, e = tx.Exec("DELETE FROM auth_grants WHERE user_id=?", a.ID); e != nil {
 				return e
 			}
@@ -432,6 +435,9 @@ func AdminArchiveAccount(u *models.User, entity string, id uint, input AdminChan
 			if _, e := tx.Model(&models.CompanyMember{}).Where(key+"=?", id).Update("status", "revoked"); e != nil {
 				return e
 			}
+		}
+		if e := stopAccountDiscovery(tx, entity, id, a.ID); e != nil {
+			return e
 		}
 		if _, e := tx.Exec("DELETE FROM auth_grants WHERE user_id=?", a.ID); e != nil {
 			return e

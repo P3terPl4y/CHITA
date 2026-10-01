@@ -82,6 +82,11 @@ func AdminSaveJob(u *models.User, id uint, input AdminJobInput) (*models.Publica
 			if old.AdminVersion != input.Version {
 				return Fail(409, "El trabajo cambió. Actualiza la lista")
 			}
+			if o, e := pendingOffer(tx, old.ID); e != nil {
+				return e
+			} else if o.ID > 0 {
+				return Fail(409, "Retira o espera el vencimiento de la propuesta antes de editar")
+			}
 			if old.Status != "published" || old.AssignedCourierID != nil {
 				return Fail(409, "Sólo se pueden editar trabajos disponibles sin asignación")
 			}
@@ -185,6 +190,11 @@ func AdminChangeJob(u *models.User, id uint, input AdminChange, action string) e
 			fields["cancellation_reason"] = reason
 		default:
 			return Fail(404, "Acción no encontrada")
+		}
+		if action != "restore" {
+			if e := withdrawOffers(tx, id, p.Title+": administración retiró el trabajo. Motivo: "+reason); e != nil {
+				return e
+			}
 		}
 		if _, e := tx.WithTrashed().Model(&models.Publication{}).Where("id=?", id).Update(fields); e != nil {
 			return e

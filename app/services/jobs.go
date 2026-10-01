@@ -109,7 +109,11 @@ func JobScope(q orm.Query, u *models.User) orm.Query {
 	if u.Role == "company" {
 		return q.Where("EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.owner_user_id=? AND c.status='active' AND c.deleted_at IS NULL)", u.ID)
 	}
-	return q.Where("assigned_courier_id=? OR (status='published' AND expires_at>? AND EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.status='active' AND c.deleted_at IS NULL) AND (visibility='public' OR EXISTS(SELECT 1 FROM company_members m WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted')))", u.ID, time.Now().UTC(), u.ID)
+	if u.Role != "courier" {
+		return q.Where("1=0")
+	}
+	now := time.Now().UTC()
+	return q.Where("assigned_courier_id=? OR (status='published' AND expires_at>? AND EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.status='active' AND c.deleted_at IS NULL) AND (visibility='public' OR EXISTS(SELECT 1 FROM company_members m WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted') OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)) AND (NOT EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.status='pending' AND o.expires_at>?) OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)))", u.ID, now, u.ID, u.ID, now, now, u.ID, now)
 }
 
 type JobLocation struct{ Latitude, Longitude float64 }
@@ -160,6 +164,9 @@ func Jobs(u *models.User, page int, locations ...JobLocation) ([]models.Publicat
 			out[i].PickupDistanceKm = &d
 		}
 	}
+	if err == nil {
+		err = attachOffers(facades.Orm().Query(), out)
+	}
 	return out, total, err
 }
 func GetJob(u *models.User, id uint) (*models.Publication, error) {
@@ -171,10 +178,17 @@ func GetJob(u *models.User, id uint) (*models.Publication, error) {
 	if p.ID == 0 {
 		return nil, Fail(404, "Trabajo no encontrado")
 	}
-	return &p, nil
+	rows := []models.Publication{p}
+	if e := attachOffers(facades.Orm().Query(), rows); e != nil {
+		return nil, e
+	}
+	return &rows[0], nil
 }
 
 func Transition(u *models.User, id uint, action, note string) (*models.Publication, error) {
+	return transition(u, id, action, note, 0)
+}
+func transition(u *models.User, id uint, action, note string, offerID uint) (*models.Publication, error) {
 	var p models.Publication
 	note, err := Text(note, 0, 2000, "Nota")
 	if err != nil {
@@ -213,7 +227,22 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 				return Fail(404, "Trabajo no encontrado")
 			}
 		} else if action == "accept" {
-			if p.Visibility != "public" {
+			offer, e := pendingOffer(tx, p.ID)
+			if e != nil {
+				return e
+			}
+			if offerID != 0 && (offer.ID != offerID || offer.CourierUserID != u.ID) {
+				return Fail(409, "La propuesta venció o ya cambió de estado")
+			}
+			if offer.ID != 0 && offer.CourierUserID != u.ID {
+				return Fail(404, "Trabajo no disponible")
+			}
+			if offer.ID > 0 {
+				if e := noActiveJobs(tx, "couriers", u.ID, false); e != nil {
+					return e
+				}
+			}
+			if p.Visibility != "public" && offer.ID == 0 {
 				var m models.CompanyMember
 				if err := tx.Where("company_id=?", p.CompanyID).Where("user_id=?", u.ID).Where("status=?", "accepted").LockForUpdate().First(&m); err != nil {
 					return err
@@ -237,6 +266,18 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 		updates := map[string]any{"status": next, "admin_version": p.AdminVersion + 1}
 		switch action {
 		case "accept":
+			if _, e := tx.Model(&models.DeliveryOffer{}).Where("publication_id=? AND status='pending' AND expires_at<=?", id, now).Update(map[string]any{"status": "expired", "responded_at": now}); e != nil {
+				return e
+			}
+			if _, e := tx.Model(&models.DeliveryOffer{}).Where("publication_id=?", id).Where("courier_user_id=?", u.ID).Where("status=?", "pending").Where("expires_at>?", now).Update(map[string]any{"status": "accepted", "responded_at": now}); e != nil {
+				return e
+			}
+			if _, e := tx.Model(&models.DeliveryOffer{}).Where("courier_user_id=?", u.ID).Where("publication_id<>?", id).Where("status=?", "pending").Update(map[string]any{"status": "withdrawn", "responded_at": now}); e != nil {
+				return e
+			}
+			if _, e := tx.Model(&models.CourierProfile{}).Where("user_id=?", u.ID).Update(map[string]any{"available_until": nil, "discovery_token": nil}); e != nil {
+				return e
+			}
 			p.AssignedCourierID = &u.ID
 			p.AssignedAt = &now
 			updates["assigned_courier_id"] = u.ID
@@ -253,6 +294,9 @@ func Transition(u *models.User, id uint, action, note string) (*models.Publicati
 			p.ReportedAt = nil
 			updates["reported_at"] = nil
 		case "cancel":
+			if e := withdrawOffers(tx, p.ID, p.Title+": la empresa canceló el trabajo"); e != nil {
+				return e
+			}
 			p.CancelledAt = &now
 			p.CancellationReason = note
 			updates["cancelled_at"] = now
