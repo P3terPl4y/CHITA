@@ -170,6 +170,16 @@ Una empresa sólo puede calificar a un repartidor después de tres entregas comp
 
 `app/server/dispatch_integration_test.go` comprueba permisos, caducidad, consentimiento, reservas simultáneas y calificaciones. `react/e2e/location_dispatch.spec.ts` prueba mapas, respuestas atrasadas, ambos temas y pantallas móviles; su flujo real de tres entregas requiere `CHITA_REAL_DISPATCH=1` y el servidor aislado en 3340. No habilites pruebas reales sobre producción.
 
+#### Carga con 1000 usuarios simulados
+
+La prueba `app/server/load_integration_test.go` es destructiva para `users` y sus relaciones: sólo se ejecuta con `CHITA_LOAD=1`, `CHITA_INTEGRATION=1`, PostgreSQL en una IP de loopback y una base terminada en `_validation`. Levanta Fiber en un puerto efímero local. Genera 500 empresas y 500 repartidores, ejecuta invitaciones, permisos entre cuentas, tres entregas confirmadas y una calificación por pareja; luego emite tres lecturas autenticadas por cada una de las 1000 cuentas de forma concurrente. Usa 20 trabajadores durante registro/entregas y direcciones loopback distintas para respetar los límites por IP. No dirige tráfico al dominio público ni representa 1000 escrituras simultáneas.
+
+```bash
+CHITA_LOAD=1 CHITA_INTEGRATION=1 DB_HOST=127.0.0.1 DB_PORT=55439 \
+DB_DATABASE=chita_validation DB_USERNAME=peter DB_PASSWORD='' \
+go test ./app/server -run '^TestLoadOneThousandUsers$' -count=1 -v
+```
+
 ### Revisión de mapas y pruebas en Firefox
 
 El diseño y las reglas del sistema están descritos en [DISENO_IMPLEMENTACION_CHITA.md](DISENO_IMPLEMENTACION_CHITA.md). El editor mantiene las coordenadas seleccionadas en estado de React y las persiste únicamente al pulsar Guardar. Todos los mapas utilizan un marco de contención para sus capas y observan cambios de tamaño.
