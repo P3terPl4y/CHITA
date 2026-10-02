@@ -68,7 +68,7 @@ func userDTO(u *models.User) any {
 	if u == nil {
 		return nil
 	}
-	return fiber.Map{"id": u.ID, "name": u.DisplayName, "email": u.Email, "phone": u.Phone, "role": u.Role}
+	return fiber.Map{"id": u.ID, "name": u.DisplayName, "email": u.Email, "phone": u.Phone, "role": u.Role, "avatar_url": u.AvatarURL}
 }
 func jobDTO(p *models.Publication) any {
 	m := fiber.Map{"id": p.ID, "title": p.Title, "description": p.Description, "status": p.Status, "company_id": p.CompanyID, "assigned_courier_id": p.AssignedCourierID, "pickup_address": p.PickupAddressText, "pickup_lat": p.PickupLat, "pickup_lng": p.PickupLng, "dropoff_address": p.DropoffAddressText, "dropoff_lat": p.DropoffLat, "dropoff_lng": p.DropoffLng, "pickup_from": p.ScheduledPickupFrom, "pickup_to": p.ScheduledPickupTo, "delivery_from": p.ScheduledDeliveryFrom, "delivery_to": p.ScheduledDeliveryTo, "price_cents": p.OfferedPriceCents, "currency": p.Currency, "reported_at": p.ReportedAt, "confirmed_at": p.ConfirmedAt, "cancellation_reason": p.CancellationReason}
@@ -263,12 +263,22 @@ func (d *DeliveryController) Networks(c fiber.Ctx) error {
 }
 func (d *DeliveryController) Invite(c fiber.Ctx) error {
 	var r struct {
-		Email string `json:"email"`
+		Email     string `json:"email"`
+		CourierID uint   `json:"courier_id"`
 	}
 	if e := Decode(c, &r); e != nil {
 		return e
 	}
-	m, e := services.Invite(current(c), r.Email)
+	if (r.Email == "") == (r.CourierID == 0) {
+		return services.Fail(422, "Indica el repartidor o su correo")
+	}
+	var m *models.CompanyMember
+	var e error
+	if r.CourierID != 0 {
+		m, e = services.InviteCourier(current(c), r.CourierID)
+	} else {
+		m, e = services.Invite(current(c), r.Email)
+	}
 	if e != nil {
 		return e
 	}

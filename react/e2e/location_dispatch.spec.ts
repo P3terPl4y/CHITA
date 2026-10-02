@@ -200,7 +200,7 @@ test("empresa encuentra cercanos y envía propuesta; paneles accesibles", async 
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Secciones", exact: true })
-    .getByRole("button", { name: "Cercanos", exact: true })
+    .getByRole("button", { name: "Buscar repartidores", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Repartidor Cercano" }),
@@ -423,6 +423,7 @@ test("propuesta real y calificación sólo tras tres entregas confirmadas", asyn
         "Pendiente de confirmación",
       );
       await company.reload();
+      await company.getByRole("navigation", { name: "Secciones", exact: true }).getByRole("button", { name: "Trabajos", exact: true }).click();
       await company.locator(".jobcard").filter({ hasText: name }).click();
       await company
         .getByRole("button", { name: "Confirmar entrega completada" })
@@ -515,6 +516,8 @@ test("seleccionar un trabajo en móvil enfoca sus detalles", async ({
   await page.setViewportSize({ width: 390, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  await page.getByRole("button", { name: "Menú", exact: true }).click();
+  await page.getByRole("navigation", { name: "Secciones móviles" }).getByRole("button", { name: "Trabajos", exact: true }).click();
   await page.locator(".jobcard").first().click();
   const detail = page.getByRole("region", {
     name: "Detalles del trabajo",

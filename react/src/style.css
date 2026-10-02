@@ -849,3 +849,88 @@ header:has(.desktop-nav) { position: sticky; top: 0; z-index: 600; }
 @media (prefers-reduced-motion: reduce) { .dashboard-shell * { scroll-behavior: auto; } }
 .dashboard-shell .heading { margin-block-end: 1.5rem; }
 .dashboard-shell .detail { scroll-margin-block-start: 14rem; }
+
+/* Task-first dashboard: stable navigation, a dedicated composer and a browse/detail workspace. */
+.dashboard-shell header { padding-inline: clamp(1rem, 3vw, 2.5rem); }
+.dashboard-shell .desktop-nav { display: flex; flex-direction: column; position: fixed; inset: 8.5rem auto 0 0; width: 14rem; padding: 1.5rem 1rem; gap: .45rem; border: 0; border-inline-end: .0625rem solid var(--border); background: var(--surface); overflow-y: auto; }
+.dashboard-shell .desktop-nav button { flex: none; text-align: start; width: 100%; padding: .85rem 1rem; }
+.dashboard-shell main { margin-inline-start: 14rem; width: auto; max-width: 90rem; padding: clamp(1rem, 3vw, 2.5rem); }
+.dashboard-shell .heading { padding: 1.25rem 1.5rem; background: var(--surface); border-radius: 1rem; }
+.dashboard-shell .heading h1 { font-size: clamp(1.6rem, 2.5vw, 2.2rem); }
+.dashboard-shell .workspace-browse { grid-template-columns: minmax(0, 1fr); }
+.workspace-browse .joblist { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.dashboard-home { display: grid; gap: 1.5rem; }
+.start-panel h2 { font-size: clamp(1.4rem, 2.4vw, 2rem); }
+.task-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-block-start: 1.5rem; }
+.task-grid button { display: grid; text-align: start; gap: .75rem; padding: 1.5rem; background: var(--surface); border-color: var(--border); }
+.task-grid button:first-child { background: linear-gradient(135deg, #ffec35, #ffbf00); color: #101010; border-color: #a87900; }
+.task-grid strong { font-size: 1.15rem; }
+.task-number { font-weight: 800; font-size: .8rem; letter-spacing: .12em; }
+.section-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.attention-list { display: grid; gap: .75rem; }
+.attention-list button { display: flex; gap: 1rem; justify-content: space-between; align-items: center; text-align: start; }
+.attention-list button > span:first-child { display: grid; gap: .4rem; }
+.dashboard-tip { padding: 1.5rem; border-inline-start: .25rem solid var(--brand); background: var(--surface); border-radius: .75rem; }
+.job-tools { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin-block: 1rem; }
+.job-composer { max-width: 65rem; margin-inline: auto; }
+.job-composer h3 { margin-block: 1.5rem .75rem; padding-block-end: .75rem; border-bottom: .0625rem solid var(--border); }
+.dashboard-shell .detail { scroll-margin-block-start: 10rem; }
+@media (max-width: 70rem) { .task-grid { grid-template-columns: 1fr; } .task-grid button { padding: 1.1rem; } .dashboard-shell .workspace { grid-template-columns: 1fr; } }
+@media (max-width: 48rem) { .dashboard-shell .desktop-nav { display: none; } .dashboard-shell main { margin-inline-start: 0; } .job-tools { grid-template-columns: 1fr; } .dashboard-shell .heading { flex-wrap: wrap; padding: 1rem; } }
+@media (min-width: 48.01rem) { .dashboard-shell header { min-height: 6rem; flex-wrap: nowrap; } .dashboard-shell .desktop-nav { inset-block-start: 6rem; } .dashboard-shell .tagline { display: none; } .dashboard-shell .account { margin-left: auto; } }
+.dashboard-shell [hidden] { display: none !important; }
+.usage-guide, .guide-steps { display: grid; gap: 1rem; }
+.guide-steps { list-style: none; padding: 0; margin: 0; }
+.guide-steps > li { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 1rem; }
+.guide-number { display: grid; place-items: center; align-self: start; aspect-ratio: 1; background: #ffdc00; color: #101010; border-radius: .75rem; font-weight: 800; }
+.guide-steps h3 { font-size: 1.2rem; margin-block-start: .3rem; }
+.guide-link { padding-inline: 0; text-decoration: underline; text-underline-offset: .25em; }
+.task-grid button > span:not(.task-number) { font-weight: 400; }
+.dashboard-shell footer { margin-inline-start: 14rem; }
+@media (max-width: 48rem) {
+  .dashboard-shell footer { margin-inline-start: 0; }
+  .task-grid button { grid-template-columns: 2rem minmax(0, 1fr) 1rem; gap: .5rem; }
+  .task-number { grid-row: 1 / 3; }
+  .task-grid strong { grid-column: 2; }
+  .task-grid button > span:nth-child(3) { grid-column: 2; font-size: .9rem; }
+  .task-grid button > span:last-child { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+  .guide-steps > li { grid-template-columns: 2.5rem minmax(0, 1fr); gap: .75rem; }
+}
+/* Fresh CHITA identity: light/dark surfaces and saturated task accents. */
+.landing-hero { background: radial-gradient(ellipse at 90% 15%, rgb(255 220 0 / .15), transparent 50%), var(--surface); color: var(--ink); }
+.landing-hero .eyebrow { color: var(--brand); border-color: var(--brand); }
+.landing-hero .intro > p:not(.eyebrow), .landing-hero .intro > .hero-note { color: var(--muted) !important; }
+.landing-hero .hero-accent { background: none; color: var(--brand); -webkit-text-fill-color: currentColor; }
+.landing-hero .cta-outline { color: var(--ink); border-color: var(--border); background: var(--surface); }
+.landing-hero .cta-outline:hover { background: var(--subtle); }
+.landing-visual { transform: none; background: linear-gradient(145deg, #e60032, #b80027); border-radius: 1.5rem; }
+.public-start-guide { border-top: .0625rem solid var(--border); }
+.public-start-guide ol { padding-inline-start: 1.25rem; display: grid; gap: .9rem; line-height: 1.65; }
+.public-start-guide li::marker { color: var(--brand); font-weight: 800; }
+:root[data-theme="dark"] .landing-hero { background: radial-gradient(ellipse at 90% 15%, rgb(255 220 0 / .12), transparent 50%), #080808; }
+:root[data-theme="dark"] .landing-visual { box-shadow: .45rem .45rem 0 #ffdc00, 0 0 2rem rgb(255 0 55 / .18); }
+.user-avatar { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; object-fit: cover; background: #ffdc00; color: #101010; font-weight: 800; }
+img.account-avatar { object-fit: cover; }
+.profile-photo { padding-block-end: 1rem; border-bottom: .0625rem solid var(--border); }
+.profile-photo h3 { font-size: 1rem; }
+.file-control { position: relative; display: inline-flex; cursor: pointer; align-items: center; min-height: 2.75rem; padding: .7rem 1rem; border: .0625rem solid var(--border); border-radius: .65rem; background: var(--surface); font-weight: 700; margin-inline-end: .5rem; overflow: hidden; }
+.file-control input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.file-control:focus-within { outline: .15rem solid var(--brand); outline-offset: .15rem; }
+.directory-search { display: flex; gap: .75rem; align-items: end; margin-block: 1.5rem; }
+.directory-search label { flex: 1; }
+.directory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+.courier-card { padding: 1.25rem; border: .0625rem solid var(--border); border-radius: 1rem; min-width: 0; }
+.courier-identity { display: flex; gap: .75rem; align-items: center; }
+.courier-identity h3, .courier-identity p { margin-block: .25rem; overflow-wrap: anywhere; }
+.success { display: flex; gap: .5rem; align-items: center; }
+.success button { margin-inline-start: auto; padding: .25rem .65rem; background: transparent; color: inherit; }
+@keyframes chita-enter { from { opacity: .4; transform: translateY(.3rem); } to { opacity: 1; transform: translateY(0); } }
+.dashboard-shell main > .heading, .dashboard-home, .usage-guide, .courier-directory, .alert, .success { animation: chita-enter .18s ease-out; }
+button, a, .jobcard { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } }
+@media (max-width: 30rem) { .directory-search { flex-wrap: wrap; } .directory-search label { flex-basis: 100%; } .dashboard-shell .account { gap: .5rem; } }
+@media (max-width: 48rem) {
+  .account-summary { display: block; }
+  .account-summary h2 { margin-block: 0 1rem; }
+  .account-summary p { margin-block: .75rem; }
+}

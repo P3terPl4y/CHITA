@@ -6,6 +6,10 @@ import { AdminPanel } from "./AdminPanel";
 import { CompanyDiscovery, CourierAvailability, OffersPanel } from "./Dispatch";
 import { RatingCard } from "./RatingCard";
 import { ProfileLocation } from "./ProfileLocation";
+import { Avatar, ProfilePhoto } from "./ProfilePhoto";
+import { CourierDirectory } from "./CourierDirectory";
+import { UsageGuide } from "./UsageGuide";
+import { DashboardHome } from "./DashboardHome";
 import { Navigation } from "./Navigation";
 import {
   useEffect,
@@ -108,6 +112,8 @@ function App() {
     [locError, setLocError] = useState(""),
     [sharing, setSharing] = useState(false),
     [creating, setCreating] = useState(false),
+    [jobFilter, setJobFilter] = useState("all"),
+    [jobSearch, setJobSearch] = useState(""),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0),
     [profile, setProfile] = useState<{
@@ -168,13 +174,13 @@ function App() {
       document.getElementById("contenido")?.focus({ preventScroll: true }),
     );
   }
-  async function refresh() {
+  async function refresh(requestPage = page) {
     const version = generation.current;
     const orderVersion = rankingVersion.current;
     const [a, b, n] = await Promise.all([
       api<{ items: Job[]; total: number }>(
         "/jobs?page=" +
-          page +
+          requestPage +
           (rankingOrigin
             ? `&lat=${rankingOrigin.lat}&lng=${rankingOrigin.lng}`
             : ""),
@@ -223,7 +229,13 @@ function App() {
   }, [user?.id, page, rankingOrigin?.lat, rankingOrigin?.lng]);
   useEffect(() => {
     if (user?.role === "admin") setTab("overview");
+    else if (user?.role === "company") setTab("home");
   }, [user?.id]);
+  useEffect(() => {
+    if (!user || user.role === "admin") return;
+    window.scrollTo({ top: 0, behavior: "instant" });
+    document.getElementById("contenido")?.focus({ preventScroll: true });
+  }, [tab]);
   function rankNearby() {
     if (rankingBusy) return;
     if (!navigator.geolocation) {
@@ -267,6 +279,11 @@ function App() {
       await fn();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de conexión");
+      requestAnimationFrame(() => {
+        const alert = document.getElementById("app-error");
+        alert?.scrollIntoView({ block: "start", behavior: "instant" });
+        alert?.focus({ preventScroll: true });
+      });
     } finally {
       setBusy(false);
     }
@@ -298,6 +315,8 @@ function App() {
       setLinked(false);
       setTab("jobs");
       setCreating(false);
+      setJobFilter("all");
+      setJobSearch("");
       window.history.replaceState(null, "", "/entrar");
       setPublicPath("/entrar");
       setRegister(false);
@@ -393,12 +412,16 @@ function App() {
         body[k] = new Date(String(r[k])).toISOString();
       await api("/jobs", "POST", body);
       setCreating(false);
+      setJobFilter("all");
+      setJobSearch("");
+      setPage(1);
+      setTab("jobs");
       setNotice(
         body.visibility === "public"
           ? "Trabajo público publicado"
           : "Trabajo publicado para tu red",
       );
-      await refresh();
+      await refresh(1);
     });
   }
   async function action(name: string, form?: HTMLFormElement) {
@@ -463,6 +486,11 @@ function App() {
         Preparando CHITA…
       </main>
     );
+  const accountGeneration = generation.current;
+  const filteredJobs = jobs.filter(j =>
+    (jobFilter === "all" || (jobFilter === "active" ? active(j.status) : j.status === jobFilter)) &&
+    `${j.title} ${j.pickup_address} ${j.dropoff_address}`.toLocaleLowerCase("es").includes(jobSearch.trim().toLocaleLowerCase("es"))
+  );
   return (
     <div
       className={
@@ -489,6 +517,7 @@ function App() {
         {!user && (
           <div className="public-links">
             <a href="/#como-funciona">Cómo funciona</a>
+            <a href="/#guia">Guía</a>
             <a href="/entrar">Entrar</a>
             <a className="header-cta" href="/registro">
               Crear cuenta
@@ -498,7 +527,7 @@ function App() {
         <ThemePicker />
         {user && (
           <div className="account">
-            <span>{user.name}</span>
+            <Avatar user={user} /><span>{user.name}</span>
             <button
               className="quiet"
               disabled={busy}
@@ -510,6 +539,8 @@ function App() {
                   setProfile(null);
                   setTab("jobs");
                   setCreating(false);
+      setJobFilter("all");
+      setJobSearch("");
                   setPosition(null);
                   setUser(null);
                   setRankingOrigin(null);
@@ -540,7 +571,7 @@ function App() {
         }
       >
         {error && (
-          <div className="alert" role="alert">
+          <div id="app-error" className="alert" role="alert" tabIndex={-1}>
             {error}
             <button aria-label="Cerrar error" onClick={() => setError("")}>
               ×
@@ -549,7 +580,8 @@ function App() {
         )}
         {notice && (
           <div className="success" role="status">
-            {notice}
+            <span aria-hidden="true">✓ </span><span>{notice}</span>
+            <button aria-label="Cerrar confirmación" onClick={() => setNotice("")}>×</button>
           </div>
         )}
         {!user ? (
@@ -702,6 +734,10 @@ function App() {
                   {
                     (
                       {
+                        home: "Tu centro de entregas",
+                        create: "Nueva entrega",
+                        guide: "Guía de uso",
+                        directory: "Repartidores para tu red",
                         jobs:
                           user.role === "company"
                             ? "Organiza tus entregas"
@@ -724,12 +760,12 @@ function App() {
                 <button
                   className="primary"
                   onClick={() => {
-                    setCreating(tab === "jobs" ? !creating : true);
-                    setTab("jobs");
+                    if (tab === "create") setTab("home");
+                    else { setCreating(true); setTab("create"); }
                   }}
                 >
-                  {creating && tab === "jobs"
-                    ? "Cerrar formulario"
+                  {tab === "create"
+                    ? "Volver al inicio"
                     : "Publicar trabajo"}
                 </button>
               )}
@@ -760,16 +796,21 @@ function App() {
                 changed={refresh}
               />
             )}
-            {tab === "jobs" && (
-              <>
+            {tab === "directory" && user.role === "company" && <CourierDirectory changed={refresh} />}
+            {tab === "guide" && <UsageGuide company={user.role === "company"} navigate={setTab} publish={() => { setCreating(true); setTab("create"); }} />}
+            {tab === "home" && <DashboardHome user={user} jobs={jobs} total={total} page={page} navigate={setTab} publish={() => { setCreating(true); setTab("create"); }} openJob={(job) => { setSelected(job); setTab("jobs"); }} />}
+            {(tab === "jobs" || creating) && (
+              <div hidden={tab !== "jobs" && tab !== "create"}>
                 {creating && (
-                  <section className="panel">
+                  <section hidden={tab !== "create"} className="panel job-composer">
+                    <p className="eyebrow">PUBLICAR · 3 PASOS EN UNA PÁGINA</p>
                     <h2>Nuevo trabajo</h2>
                     <p className="muted">
                       Elige si el trabajo es público o exclusivo de tu red. Los
                       horarios se introducen en tu zona local.
                     </p>
                     <form onSubmit={create}>
+                      <h3>1. ¿Qué necesitas enviar y quién puede verlo?</h3>
                       <label>
                         Visibilidad del trabajo
                         <select name="visibility" defaultValue="network">
@@ -790,6 +831,8 @@ function App() {
                         Descripción
                         <textarea name="description" maxLength={3000} />
                       </label>
+                      <h3>2. ¿Dónde y cuándo se recoge y se entrega?</h3>
+                      <p className="muted">Elige cada punto en el mapa y comprueba su dirección. Indica un horario de inicio y fin para cada parada.</p>
                       <div className="fields">
                         {["pickup", "dropoff"].map((k) => (
                           <fieldset key={k}>
@@ -865,6 +908,7 @@ function App() {
                           </fieldset>
                         ))}
                       </div>
+                      <h3>3. ¿Cuánto ofreces por el trabajo?</h3>
                       <div className="fields">
                         <Field name="price" label="Tarifa acordada" />
                         <label>
@@ -885,7 +929,7 @@ function App() {
                     </form>
                   </section>
                 )}
-                <div className="workspace">
+                {tab === "jobs" && <div className={"workspace " + (!selected ? "workspace-browse" : "")}>
                   <section>
                     <h2>
                       {user.role === "company"
@@ -909,6 +953,11 @@ function App() {
                         </button>
                       </div>
                     )}
+                    <div className="job-tools">
+                      <label>Buscar en esta página<input type="search" value={jobSearch} onChange={e => setJobSearch(e.target.value)} placeholder="Título o dirección" /></label>
+                      <label>Mostrar<select aria-label="Mostrar trabajos por estado" value={jobFilter} onChange={e => setJobFilter(e.target.value)}><option value="all">Todos los estados</option><option value="published">Disponibles</option><option value="active">En curso</option><option value="delivery_reported">Por confirmar</option><option value="completed">Completados</option><option value="cancelled">Cancelados</option></select></label>
+                    </div>
+                    <p className="muted">Los filtros se aplican a los trabajos de esta página. Cambia de página para revisar más resultados.</p>
                     {!jobs.length ? (
                       <div className="empty">
                         {user.role === "company"
@@ -917,7 +966,7 @@ function App() {
                       </div>
                     ) : (
                       <div className="joblist">
-                        {jobs.map((j) => (
+                        {filteredJobs.map((j) => (
                           <button
                             key={j.id}
                             className={
@@ -967,6 +1016,7 @@ function App() {
                         ))}
                       </div>
                     )}
+                    {jobs.length > 0 && !filteredJobs.length && <div className="empty">No hay coincidencias en esta página. <button onClick={() => { setJobFilter("all"); setJobSearch(""); }}>Limpiar filtros</button></div>}
                     <div className="pagination">
                       <button
                         disabled={page === 1}
@@ -986,6 +1036,7 @@ function App() {
                     </div>
                   </section>
                   <section
+                    hidden={!selected}
                     className="panel detail"
                     aria-label="Detalles del trabajo"
                     ref={detailPanel}
@@ -993,6 +1044,7 @@ function App() {
                   >
                     {selected ? (
                       <>
+                        <button className="quiet" onClick={() => { if (sharing) stop(); setSelected(null); }}>← Volver a la lista</button>
                         <span className="badge">{statusLabel(selected)}</span>
                         <h2>{selected.title}</h2>
                         <p>{selected.description}</p>
@@ -1085,7 +1137,7 @@ function App() {
                                   {!linked && (
                                     <button
                                       className="quiet"
-                                      onClick={() => setTab("profile")}
+                                      onClick={() => setTab("halcon")}
                                     >
                                       Vincular HALCON
                                     </button>
@@ -1238,8 +1290,8 @@ function App() {
                       </div>
                     )}
                   </section>
-                </div>
-              </>
+                </div>}
+              </div>
             )}
             {tab === "network" && (
               <section className="panel">
@@ -1376,10 +1428,8 @@ function App() {
                 {tab === "profile" && (
                   <>
                     <aside className="panel account-summary">
-                      <span className="account-avatar" aria-hidden="true">
-                        {user.name.trim().charAt(0).toUpperCase()}
-                      </span>
                       <h2>Mi cuenta</h2>
+                      <ProfilePhoto user={user} sessionCurrent={() => generation.current === accountGeneration} updated={avatar_url => setUser(current => current?.id === user.id ? { ...current, avatar_url } : current)} />
                       <p>
                         <b>{user.name}</b> ·{" "}
                         {user.role === "company" ? "Empresa" : "Repartidor"}

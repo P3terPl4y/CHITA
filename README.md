@@ -5,7 +5,10 @@ Primera versión funcional para coordinar entregas entre empresas y repartidores
 ## Qué permite
 
 - Crear una cuenta de empresa o repartidor con dirección y coordenadas. Cada rol tiene su propio perfil; el rol no puede cambiarse desde una petición del cliente.
-- La empresa elige trabajos públicos para todos los repartidores registrados o exclusivos de su red. Para los exclusivos, invita por correo y el repartidor debe aceptar. Los trabajos existentes siguen siendo exclusivos.
+- La empresa elige trabajos públicos para todos los repartidores registrados o exclusivos de su red. Para los exclusivos, invita desde el directorio o por correo y el repartidor debe aceptar. Los trabajos existentes siguen siendo exclusivos.
+- Consultar un directorio de repartidores con foto, vehículo y puntuaciones, e invitarles a la red sin conocer su correo. El directorio no muestra coordenadas ni implica disponibilidad.
+- Personalizar la foto de perfil; el cliente la recorta y reduce y el servidor valida y vuelve a codificar la imagen.
+- Usar paneles por tareas, guía de uso para cada rol y temas claro/oscuro con navegación móvil accesible.
 - Publicar trabajos con recogida, entrega, coordenadas, ventanas horarias y tarifa en centavos (USD, CUP o EUR).
 - Ordenar primero las entregas activas del repartidor y después las recogidas disponibles por cercanía, antes de paginar. Por defecto se usa la ubicación del perfil; «Ordenar cerca de mí» solicita GPS para actualizar el orden. Distancia en línea recta, no ruta ni tiempo de viaje.
 - Un solo repartidor puede aceptar un trabajo. La asignación y los cambios de estado se protegen mediante transacciones y bloqueos de filas.

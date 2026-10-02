@@ -38,9 +38,11 @@ export function Map({
         .bindTooltip(i ? "Entrega" : "Recogida"),
     );
     m.fitBounds(L.latLngBounds(points).pad(0.25), { maxZoom: 15 });
-    const resize = new ResizeObserver(() => m.invalidateSize({ pan: false }));
+    let live = true;
+    const resize = new ResizeObserver(() => { if (live) m.invalidateSize({ pan: false }); });
     resize.observe(el.current);
     return () => {
+      live = false;
       resize.disconnect();
       m.remove();
       map.current = null;
@@ -148,9 +150,11 @@ export function PointMap({
         ).pad(0.2),
         { maxZoom: 15 },
       );
-    const resize = new ResizeObserver(() => m.invalidateSize({ pan: false }));
+    let live = true;
+    const resize = new ResizeObserver(() => { if (live) m.invalidateSize({ pan: false }); });
     resize.observe(el.current);
     return () => {
+      live = false;
       resize.disconnect();
       m.remove();
     };
@@ -221,6 +225,7 @@ export function LocationPicker({
     let generation = 0;
     let live = true;
     function sync() {
+      if (!live) return;
       if (
         lat.value === "" ||
         lng.value === "" ||
@@ -238,7 +243,7 @@ export function LocationPicker({
         })
           .addTo(m)
           .bindTooltip(tooltip("Ubicación seleccionada"));
-      m.panTo(point);
+      m.panTo(point, { animate: false });
     }
     function event(input: HTMLInputElement) {
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -302,7 +307,7 @@ export function LocationPicker({
     );
     lat.addEventListener("input", sync);
     lng.addEventListener("input", sync);
-    const resize = new ResizeObserver(() => m.invalidateSize());
+    const resize = new ResizeObserver(() => { if (live) m.invalidateSize({ pan: false }); });
     resize.observe(el.current);
     return () => {
       live = false;

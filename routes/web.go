@@ -39,6 +39,8 @@ func Web(app *fiber.App, d *controllers.DeliveryController, geo *services.Geocod
 	protected.Post("/auth/logout", d.Logout)
 	protected.Get("/profile", d.Profile)
 	protected.Put("/profile/location", dispatch.Location)
+	protected.Put("/profile/avatar", limiter.New(limiter.Config{Max: 10, Expiration: time.Minute, KeyGenerator: userKey, LimitReached: reached}), dispatch.Avatar)
+	protected.Get("/couriers/directory", dispatch.Directory)
 	protected.Put("/availability", dispatch.Availability)
 	protected.Get("/couriers/nearby", dispatch.Nearby)
 	protected.Get("/couriers/:id/rating", dispatch.Rating)

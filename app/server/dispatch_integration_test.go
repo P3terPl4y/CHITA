@@ -218,6 +218,20 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 	if summary["count"].(float64) != 1 || summary["average"].(float64) != 3 || summary["completed_jobs"].(float64) != 3 {
 		t.Fatal("rating weighting or archived count failed", summary)
 	}
+	directory := company.want(200, "GET", "/api/couriers/directory", nil)
+	foundRated := false
+	for _, item := range directory["items"].([]any) {
+		entry := item.(map[string]any)
+		if entry["id"] == float64(uid) {
+			foundRated = true
+			if entry["average_rating"] != float64(3) || entry["rating_count"] != float64(1) {
+				t.Fatal("directory rating differs from real rating", entry)
+			}
+		}
+	}
+	if !foundRated {
+		t.Fatal("rated courier missing from directory")
+	}
 	courier.want(200, "GET", ratingPath, nil)
 	other.want(403, "GET", ratingPath, nil)
 	courier.want(204, "PUT", "/api/availability", map[string]any{"enabled": false})

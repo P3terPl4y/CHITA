@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 export function Navigation({ role, tab, unread, select }: { role: string; tab: string; unread: boolean; select: (tab: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
-  const choices = role === "admin" ? [["overview","Resumen"],["jobs","Trabajos"],["companies","Empresas"],["couriers","Repartidores"],["audits","Historial"],["security","Seguridad"]] : [["jobs", "Trabajos"], ...(role === "company" ? [["nearby","Cercanos"]] : []), ["offers","Propuestas"], ["network", role === "company" ? "Mi red" : "Invitaciones"], ["notifications", "Avisos"], ["profile", "Mi cuenta"], ...(role === "courier" ? [["halcon", "HALCON"]] : [])];
+  const choices = role === "admin" ? [["overview","Resumen"],["jobs","Trabajos"],["companies","Empresas"],["couriers","Repartidores"],["audits","Historial"],["security","Seguridad"]] : [["home", "Inicio"], ["jobs", "Trabajos"], ...(role === "company" ? [["nearby","Buscar repartidores"],["directory","Directorio"]] : []), ["offers","Propuestas"], ["network", role === "company" ? "Mi red" : "Invitaciones"], ["notifications", "Avisos"], ["profile", "Mi cuenta"], ["guide", "Guía de uso"], ...(role === "courier" ? [["halcon", "HALCON"]] : [])];
   function close() { dialog.current?.close(); setOpen(false); }
   useEffect(() => {
     if (!open) return;

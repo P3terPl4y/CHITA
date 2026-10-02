@@ -338,7 +338,7 @@ export function CompanyDiscovery({
   choose: (job: Job | null) => void;
   changed: () => Promise<void>;
 }) {
-  const job = selected?.status === "published" ? selected : null;
+  const job = selected?.status === "published" && new Date(selected.pickup_to).getTime() > Date.now() ? selected : null;
   const available = jobs.filter(
     (j) =>
       j.status === "published" && new Date(j.pickup_to).getTime() > Date.now(),
@@ -377,6 +377,8 @@ export function CompanyDiscovery({
   useEffect(() => {
     setError("");
     setNotice("");
+    setRows([]);
+    setSelectedCourier(null);
     void load();
     const timer = setInterval(() => void load(), 15000);
     return () => {
@@ -385,7 +387,7 @@ export function CompanyDiscovery({
     };
   }, [latitude, longitude, radius]);
   async function propose(courier: Nearby) {
-    if (!job || busy) return;
+    if (!job || busy || loading) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -505,7 +507,7 @@ export function CompanyDiscovery({
             </p>
             <button
               className="primary"
-              disabled={busy || !job || c.pending_offer || !!job.pending_offer}
+              disabled={busy || loading || !job || c.pending_offer || !!job.pending_offer}
               onClick={() => void propose(c)}
             >
               {c.pending_offer
