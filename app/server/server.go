@@ -2,6 +2,11 @@ package server
 
 import (
 	"errors"
+	"net"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/csrf"
@@ -14,11 +19,10 @@ import (
 	"goravel/app/services"
 	"goravel/routes"
 	"log"
-	"time"
 )
 
 func New(storage fiber.Storage, production bool, t *services.Tracking, geocoders ...*services.Geocoder) *fiber.App {
-	app := fiber.New(fiber.Config{TrustProxy: true, EnableIPValidation: true, ProxyHeader: fiber.HeaderXForwardedFor, TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true}, BodyLimit: 32 * 1024, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, ErrorHandler: func(c fiber.Ctx, e error) error {
+	app := fiber.New(fiber.Config{TrustProxy: true, EnableIPValidation: true, ProxyHeader: fiber.HeaderXForwardedFor, TrustProxyConfig: fiber.TrustProxyConfig{Loopback: true, Proxies: trustedProxyAddresses()}, BodyLimit: 32 * 1024, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, ErrorHandler: func(c fiber.Ctx, e error) error {
 		code := 500
 		msg := "No se pudo completar la operación"
 		var p *services.Problem
@@ -63,7 +67,28 @@ func New(storage fiber.Storage, production bool, t *services.Tracking, geocoders
 		geo = geocoders[0]
 	}
 	routes.Web(app, controllers.NewDeliveryController(t), geo)
+	app.Get("/healthz", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
 	app.Use(static.New("./react/dist", static.Config{IndexNames: []string{"index.html"}}))
 	app.Get("/*", func(c fiber.Ctx) error { return c.SendFile("./react/dist/index.html") })
 	return app
+}
+
+func trustedProxyAddresses() []string {
+	var trusted []string
+	for _, candidate := range strings.Split(os.Getenv("TRUSTED_PROXY_IPS"), ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if net.ParseIP(candidate) != nil {
+			trusted = append(trusted, candidate)
+			continue
+		}
+		if _, _, err := net.ParseCIDR(candidate); err == nil {
+			trusted = append(trusted, candidate)
+			continue
+		}
+		log.Printf("TRUSTED_PROXY_IPS contiene una IP/CIDR inválida; se ignora: %q", candidate)
+	}
+	return trusted
 }

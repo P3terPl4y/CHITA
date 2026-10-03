@@ -92,14 +92,14 @@ test("landing conecta roles, acceso y enlaces directos sin perder navegación", 
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Coordina la siguiente entrega." }),
+    page.getByRole("heading", { name: "Publica. Reparte. Entrega." }),
   ).toBeVisible();
   await page.evaluate(() => {
     (
       window as Window & { chitaNavigationMarker?: boolean }
     ).chitaNavigationMarker = true;
   });
-  await page.getByRole("link", { name: "Soy empresa" }).click();
+  await page.getByRole("link", { name: "Necesito repartir" }).click();
   expect(
     await page.evaluate(
       () =>
@@ -114,9 +114,9 @@ test("landing conecta roles, acceso y enlaces directos sin perder navegación", 
   await expect(page.getByLabel("Nombre de la empresa")).toBeVisible();
   await page.goBack();
   await expect(
-    page.getByRole("heading", { name: "Coordina la siguiente entrega." }),
+    page.getByRole("heading", { name: "Publica. Reparte. Entrega." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Soy repartidor" }).click();
+  await page.getByRole("link", { name: "Quiero repartir" }).click();
   await expect(page.getByLabel("Quiero usar CHITA como")).toHaveValue(
     "courier",
   );
@@ -134,7 +134,7 @@ test("landing conecta roles, acceso y enlaces directos sin perder navegación", 
   ).toBeVisible();
   await page.getByRole("link", { name: "Volver a CHITA" }).click();
   await expect(
-    page.getByRole("heading", { name: "Coordina la siguiente entrega." }),
+    page.getByRole("heading", { name: "Publica. Reparte. Entrega." }),
   ).toBeVisible();
   await page.emulateMedia({ reducedMotion: "reduce" });
   expect(
@@ -142,6 +142,17 @@ test("landing conecta roles, acceso y enlaces directos sin perder navegación", 
       .locator(".preview-path")
       .evaluate((el) => getComputedStyle(el).animationName),
   ).toBe("none");
+});
+
+test("avisa cuando el navegador queda sin conexión y retira el aviso al volver", async ({ page, context }) => {
+  await page.goto("/");
+  await context.setOffline(true);
+  await expect(page.getByText("Sin conexión a Internet.")).toBeVisible();
+  await expect(page.getByText(/cuando vuelva, reintenta la acción/i)).toBeVisible();
+  const offlinePage = await new AxeBuilder({ page }).analyze();
+  expect(offlinePage.violations.map((violation) => violation.id)).toEqual([]);
+  await context.setOffline(false);
+  await expect(page.getByText("Sin conexión a Internet.")).toBeHidden();
 });
 
 test("contraseña visible y error de acceso conservan los datos", async ({

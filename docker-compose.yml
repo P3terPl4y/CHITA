@@ -1,9 +1,86 @@
-version: '3'
-
 services:
-  goravel:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-chita}
+      POSTGRES_USER: ${DB_USERNAME:-chita}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env}
+    volumes:
+      - chita_postgres:/var/lib/postgresql/data
+    networks:
+      chita_net:
+        ipv4_address: ${CHITA_DOCKER_PREFIX:-172.30.77}.2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - chita_redis:/data
+    networks:
+      chita_net:
+        ipv4_address: ${CHITA_DOCKER_PREFIX:-172.30.77}.3
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  chita:
     build:
       context: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?Generate and set APP_KEY in .env before starting CHITA}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 3330
+      DB_CONNECTION: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-chita}
+      DB_USERNAME: ${DB_USERNAME:-chita}
+      DB_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env}
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      HALCON_URL: ${HALCON_URL:-http://host.docker.internal:3300}
+      TRUSTED_PROXY_IPS: ${CHITA_DOCKER_PREFIX:-172.30.77}.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "3000:3000"
-    restart: always
+      - "127.0.0.1:${CHITA_PORT:-3330}:3330"
+    networks:
+      chita_net:
+        ipv4_address: ${CHITA_DOCKER_PREFIX:-172.30.77}.10
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3330/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  chita_postgres:
+  chita_redis:
+
+networks:
+  chita_net:
+    ipam:
+      config:
+        - subnet: ${CHITA_DOCKER_PREFIX:-172.30.77}.0/24

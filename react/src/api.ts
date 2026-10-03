@@ -64,6 +64,16 @@ export class APIError extends Error {
     this.name = "APIError";
   }
 }
+function fallbackError(status: number) {
+  if (status === 401) return "Tu sesión no es válida o ha caducado. Vuelve a entrar.";
+  if (status === 403) return "No tienes permiso para esta acción. Actualiza la página y vuelve a intentarlo.";
+  if (status === 404) return "No encontramos este elemento. Puede que se haya retirado o cambiado.";
+  if (status === 409) return "Este elemento cambió mientras lo consultabas. Actualiza la lista antes de continuar.";
+  if (status === 422 || status === 400) return "Revisa los datos indicados y vuelve a intentarlo.";
+  if (status === 429) return "Has realizado muchas solicitudes seguidas. Espera un momento y vuelve a intentarlo.";
+  if (status >= 500) return "CHITA tuvo un problema temporal. Inténtalo de nuevo en unos minutos.";
+  return "No se pudo completar la operación. Vuelve a intentarlo.";
+}
 let csrf = "";
 let authenticated = false;
 export async function session() {
@@ -78,28 +88,36 @@ export async function api<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const r = await fetch("/api" + path, {
-    method,
-    credentials: "same-origin",
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(method === "GET" ? {} : { "X-CSRF-Token": csrf }),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  let r: Response;
+  try {
+    r = await fetch("/api" + path, {
+      method,
+      credentials: "same-origin",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(method === "GET" ? {} : { "X-CSRF-Token": csrf }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch (e) {
+    if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) throw e;
+    if (e instanceof TypeError)
+      throw new APIError("No pudimos conectar con CHITA. Comprueba tu conexión e inténtalo de nuevo.", 0);
+    throw e;
+  }
   if (!r.ok) {
     if (r.status === 401 && authenticated) {
       authenticated = false;
       window.dispatchEvent(new Event("chita-session-ended"));
     }
-    const x = await r
-      .json()
-      .catch(() => ({ error: "No se pudo conectar con CHITA" }));
-    throw new APIError(
-      x.error || "No se pudo completar la operación",
-      r.status,
-    );
+    const x: unknown = await r.json().catch(() => null);
+    const message =
+      x && typeof x === "object" && "error" in x &&
+      typeof x.error === "string" && x.error.trim()
+        ? x.error.trim().slice(0, 320)
+        : fallbackError(r.status);
+    throw new APIError(message, r.status);
   }
   return r.status === 204 ? (undefined as T) : r.json();
 }

@@ -91,6 +91,7 @@ function App() {
   const [rankingBusy, setRankingBusy] = useState(false);
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
+    [online, setOnline] = useState(() => navigator.onLine),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
@@ -127,6 +128,7 @@ function App() {
     gps = useRef<GeolocationPosition | null>(null),
     sending = useRef(false),
     generation = useRef(0),
+    pollingFailure = useRef(false),
     gpsVersion = useRef(0),
     rankingVersion = useRef(0);
   function syncPublicRoute() {
@@ -206,6 +208,16 @@ function App() {
     }
   }
   useEffect(() => {
+    const wentOnline = () => setOnline(true);
+    const wentOffline = () => setOnline(false);
+    window.addEventListener("online", wentOnline);
+    window.addEventListener("offline", wentOffline);
+    return () => {
+      window.removeEventListener("online", wentOnline);
+      window.removeEventListener("offline", wentOffline);
+    };
+  }, []);
+  useEffect(() => {
     session()
       .then(setUser)
       .catch((e) => setError(e.message))
@@ -213,6 +225,7 @@ function App() {
   }, []);
   useEffect(() => {
     if (!user || user.role === "admin") return;
+    pollingFailure.current = false;
     const version = generation.current;
     let live = true;
     refresh().catch((e) => live && setError(e.message));
@@ -221,7 +234,18 @@ function App() {
         if (live && version === generation.current) setProfile(x.profile);
       })
       .catch((e) => live && setError(e.message));
-    const timer = setInterval(() => refresh().catch(() => {}), 15000);
+    const timer = setInterval(() => {
+      void refresh().then(() => {
+        if (!live || !pollingFailure.current) return;
+        pollingFailure.current = false;
+        setError((current) => current === "No se pudo actualizar la información. CHITA volverá a intentarlo automáticamente." ? "" : current);
+        setNotice((current) => current || "Conexión recuperada; la información se actualizó.");
+      }).catch(() => {
+        if (!live || pollingFailure.current) return;
+        pollingFailure.current = true;
+        setError((current) => current || "No se pudo actualizar la información. CHITA volverá a intentarlo automáticamente.");
+      });
+    }, 15000);
     return () => {
       live = false;
       clearInterval(timer);
@@ -517,7 +541,7 @@ function App() {
         {!user && (
           <div className="public-links">
             <a href="/#como-funciona">Cómo funciona</a>
-            <a href="/#guia">Guía</a>
+            <a href="/#documentacion">Guía</a>
             <a href="/entrar">Entrar</a>
             <a className="header-cta" href="/registro">
               Crear cuenta
@@ -570,6 +594,11 @@ function App() {
             : ""
         }
       >
+        {!online && (
+          <div className="connection-banner" role="status" aria-live="polite">
+            <strong>Sin conexión a Internet.</strong> Comprueba la conexión; cuando vuelva, reintenta la acción que estabas realizando.
+          </div>
+        )}
         {error && (
           <div id="app-error" className="alert" role="alert" tabIndex={-1}>
             {error}

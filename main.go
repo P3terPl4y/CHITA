@@ -19,9 +19,20 @@ import (
 )
 
 func main() {
+	if isArtisanCommand(os.Args) {
+		bootstrap.Boot()
+		if err := facades.Artisan().Run(os.Args, true); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if err := serve(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func isArtisanCommand(args []string) bool {
+	return len(args) > 1 && args[1] == "artisan"
 }
 
 func serve() error {

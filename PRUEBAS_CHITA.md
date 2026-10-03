@@ -98,6 +98,17 @@ Esta actualización sólo modifica el cliente React; no cambia las reglas de per
 
 El detalle de diseño y las limitaciones están en [DISENO_IMPLEMENTACION_CHITA.md](DISENO_IMPLEMENTACION_CHITA.md). No se ejecutó una carga de 1000 usuarios ni una prueba en la laptop física. La dirección externa puede fallar y admite edición manual; el GPS no acredita presencia física.
 
+## Corrección y comprobación operativa (2026-10-03)
+
+- Se encontró que el ejecutable principal ignoraba los argumentos `artisan`; por eso los comandos documentados podían arrancar el servidor en lugar de correr `migrate`, `key:generate` o `admin:create`. Ahora la entrada deriva los argumentos a Artisan. `go run . artisan list --no-ansi` y el binario compilado muestran los comandos esperados.
+- Se añadió `/healthz` (HTTP 204) para distinguir el proceso HTTP de la ruta SPA comodín. Prueba unitaria y verificación local y pública aprobadas.
+- Compose pasó parseo YAML. Define PostgreSQL y Redis con volúmenes, verifica sus healthchecks, ejecuta CHITA como usuario sin privilegios y expone el puerto sólo en loopback. El proxy confiable adicional queda limitado al gateway de su red Docker; la allowlist valida IP y CIDR y por defecto permanece vacía. No fue posible ejecutar `docker compose config` ni construir/probar la imagen: esta máquina no tiene Docker ni Podman.
+- `go test ./... -count=1`, `go vet ./...`, `git diff --check`, 26 pruebas React y `npm run build`: aprobados. Siete escenarios Playwright de tema, landing, acceso, conectividad, responsive y accesibilidad pasaron contra el dominio público; las API de esos escenarios fueron simuladas y no escribieron cuentas.
+- Comprobación de producción tras respaldar el binario y `react/dist` en `storage/backups/operational-20261003`: servicio CHITA y servicio Cloudflare activos; `/healthz` local y HTTPS público 204, landing 200 y directorio anónimo 401. Sin migraciones de datos. El proceso CHITA usa 56 MiB RSS en la muestra posterior al reinicio.
+- El ejecutable Go actualizado está instalado y el servicio se reinició correctamente. No se detuvieron procesos ajenos: el proceso Python observado pertenece a `boti-whatsapp`, no a CHITA, y no mostró uso excesivo de memoria.
+
+Queda pendiente probar el Dockerfile/Compose en una máquina con Docker, así como despliegues de carga y recuperación de respaldos. El servicio nativo actual está activo; estas verificaciones no demuestran disponibilidad continua ni certifican la aplicación como libre de defectos.
+
 ## Rediseño por tareas, guías, directorio y fotos (2026-10-02)
 
 - TypeScript/Vite, 17 pruebas unitarias React y `go vet -p2 ./...` aprobados. Suite Go con PostgreSQL aislado y `-race` aprobada; repetición de servicios después de añadir aceptación de JPEG recodificado también aprobada.

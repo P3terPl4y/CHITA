@@ -45,8 +45,8 @@ Requisitos: Go 1.26.8 o posterior, Node compatible con Vite 8, PostgreSQL, Redis
 ```bash
 cp .env.example .env
 # Completar las credenciales de una base de datos exclusiva de CHITA.
-go run . artisan key:generate
-go run . artisan migrate
+./artisan key:generate
+./artisan migrate
 cd react
 npm ci
 npm run build
@@ -56,7 +56,24 @@ go run .
 
 Abrir `http://localhost:3330`. `APP_PORT` y `APP_HOST` se respetan. La aplicación sirve `react/dist` y la API en el mismo origen. Para desarrollo del cliente: `cd react && npm run dev`, puerto 5175, proxy de API al puerto 3330.
 
-Usar `APP_ENV=production` y HTTPS para publicación: las cookies cambian a `__Host-chita-session` y `__Host-chita-csrf`, son Secure y HttpOnly. El servidor sólo confía en cabeceras de proxy procedentes de loopback; un proxy de publicación debe sobrescribir las cabeceras reenviadas. No habilitar CORS indiscriminadamente ni reutilizar credenciales o tablas de HALCON.
+### Despliegue con Docker Compose
+
+El stack Compose incluye PostgreSQL y Redis persistentes, y publica CHITA sólo en el loopback del host para que un proxy local (por ejemplo, Cloudflare Tunnel) lo exponga. No publica los puertos de la base de datos ni Redis. La instancia CHITA debe ser única porque el broker de ubicación vive en memoria. HALCON debe permanecer accesible en `HALCON_URL`. Compose reserva `172.30.77.0/24` con direcciones fijas y confía sólo en el gateway de esa red para leer `X-Forwarded-For`; si esa red ya está en uso, define un `CHITA_DOCKER_PREFIX` libre de tres octetos IPv4 en `.env`, por ejemplo `172.30.78`.
+
+```bash
+cp .env.example .env
+# Generar APP_KEY con ./artisan key:generate. Editar .env para definir una
+# contraseña DB_PASSWORD robusta y HALCON_URL alcanzable desde el contenedor.
+docker compose build
+docker compose run --rm chita artisan migrate
+docker compose up -d chita
+docker compose ps
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3330/healthz
+```
+
+El endpoint `/healthz` confirma que el proceso HTTP responde; no sustituye una comprobación de dependencias ni verifica que HALCON esté disponible. Antes de actualizar, toma una copia de PostgreSQL y revisa las migraciones. No ejecutes `migrate:fresh`, `migrate:refresh` ni `db:wipe` sobre datos que quieras conservar. Los volúmenes `chita_postgres` y `chita_redis` deben incluirse en la política de respaldo del servidor. Para usar otro puerto local, establece `CHITA_PORT` antes de ejecutar Compose y actualiza el origen del proxy.
+
+Usar `APP_ENV=production` y HTTPS para publicación: las cookies cambian a `__Host-chita-session` y `__Host-chita-csrf`, son Secure y HttpOnly. Por defecto el servidor sólo confía en proxies de loopback; `TRUSTED_PROXY_IPS` permite añadir IP o CIDR explícitos. El proxy de publicación debe sobrescribir las cabeceras reenviadas y no se debe confiar una red privada completa. No habilitar CORS indiscriminadamente ni reutilizar credenciales o tablas de HALCON.
 
 ## Integración con HALCON
 

@@ -1,9 +1,14 @@
 .git
+.github
+.agents
+.codex
 .env
 .env.*
 !.env.example
 storage
-artisan
 react/node_modules
+react/dist
 react/test-results
 react/playwright-report
+node_modules
+tmp
