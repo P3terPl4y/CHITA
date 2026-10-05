@@ -11,7 +11,7 @@ function saved(): Theme {
 function apply(theme: Theme) {
   const dark = theme === "dark" || (theme === "system" && media.matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#111111" : "#ffffff");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#091711" : "#f2f7f3");
 }
 apply(saved());
 

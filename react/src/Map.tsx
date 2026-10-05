@@ -66,7 +66,7 @@ export function Map({
       if (!marker.current)
         marker.current = L.circleMarker(
           [position.latitude, position.longitude],
-          { radius: 9, color: "#171717", fillColor: "#ffdc00", fillOpacity: 1 },
+          { radius: 9, color: "#10251a", fillColor: "#c7f36a", fillOpacity: 1 },
         )
           .addTo(map.current!)
           .bindTooltip("Última posición del repartidor");
