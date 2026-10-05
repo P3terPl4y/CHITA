@@ -174,6 +174,31 @@ func CheckGrant(userID uint, token string) error {
 	}
 	return nil
 }
+
+// AuthenticatedUser validates the session grant and loads its active owner in
+// one indexed database round trip. The join preserves immediate logout and
+// account deactivation semantics while avoiding two serial reads per request.
+func AuthenticatedUser(userID uint, token string) (*models.User, error) {
+	if userID == 0 || token == "" {
+		return nil, Fail(401, "Inicia sesión")
+	}
+	var user models.User
+	err := facades.Orm().Query().Model(&models.User{}).
+		Join("JOIN auth_grants AS session_grant ON session_grant.user_id=users.id").
+		Where("users.id=?", userID).
+		Where("users.status=?", true).
+		Where("session_grant.token=?", token).
+		Where("session_grant.expires_at>?", time.Now().UTC()).
+		First(&user)
+	if err != nil {
+		return nil, err
+	}
+	if user.ID == 0 {
+		return nil, Fail(401, "Tu sesión terminó")
+	}
+	return &user, nil
+}
+
 func Revoke(userID uint, token string) error {
 	_, e := facades.Orm().Query().Exec("DELETE FROM auth_grants WHERE user_id=? AND token=?", userID, token)
 	return e

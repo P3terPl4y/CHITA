@@ -11,6 +11,15 @@ for (const role of ["company", "courier"]) {
     };
     let fail = false;
     let saved = 0;
+    let reverseCount = 0;
+    let startFirstReverse!: () => void;
+    let releaseFirstReverse!: () => void;
+    const firstReverseStarted = new Promise<void>((resolve) => {
+      startFirstReverse = resolve;
+    });
+    const firstReverseGate = new Promise<void>((resolve) => {
+      releaseFirstReverse = resolve;
+    });
     await page.route("https://tile.openstreetmap.org/**", (r) =>
       r.fulfill({
         contentType: "image/png",
@@ -46,9 +55,19 @@ for (const role of ["company", "courier"]) {
           rating: null,
         };
       else if (path === "/api/maps/reverse") {
-        await new Promise((r) => setTimeout(r, 250));
-        data = { address: "Dirección del punto nuevo" };
+        reverseCount++;
+        if (reverseCount === 1) {
+          startFirstReverse();
+          await firstReverseGate;
+        }
+        data = {
+          address:
+            reverseCount === 1
+              ? "Dirección del punto nuevo"
+              : "Dirección ajustada al arrastrar el pin",
+        };
       } else if (path === "/api/profile/location") {
+        expect(route.request().method()).toBe("POST");
         if (fail)
           return route.fulfill({
             status: 503,
@@ -95,11 +114,32 @@ for (const role of ["company", "courier"]) {
       exact: true,
     });
     await expect(map).toBeVisible();
+    const coordinates = editor.getByLabel("Coordenadas seleccionadas");
+    await expect(coordinates).toHaveText("23.10000, -82.30000");
     await expect(editor.getByRole("spinbutton")).toHaveCount(0);
     await expect(save).toBeDisabled();
     await map.click({ position: { x: 160, y: 130 } });
+    await firstReverseStarted;
     await expect(save).toBeDisabled();
+    releaseFirstReverse();
     await expect(address).toHaveValue("Dirección del punto nuevo");
+    await expect(map.locator(".leaflet-marker-draggable")).toBeVisible();
+    const pin = map.locator(".leaflet-marker-draggable");
+    const pinBox = await pin.boundingBox();
+    const mapBox = await map.boundingBox();
+    if (!pinBox || !mapBox) throw new Error("No se pudo medir el mapa");
+    const startX = pinBox.x + pinBox.width / 2;
+    const startY = pinBox.y + pinBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(
+      Math.min(mapBox.x + mapBox.width - 30, startX + 48),
+      Math.max(mapBox.y + 30, startY - 24),
+      { steps: 8 },
+    );
+    await page.mouse.up();
+    await expect(address).toHaveValue("Dirección ajustada al arrastrar el pin");
+    await expect(coordinates).not.toHaveText("23.10000, -82.30000");
     await expect(save).toBeEnabled();
     await save.click();
     await expect(
@@ -114,7 +154,7 @@ for (const role of ["company", "courier"]) {
     await expect(address).toHaveValue("Referencia corregida");
     await expect(save).toBeEnabled();
     await editor.getByRole("button", { name: "Descartar cambios" }).click();
-    await expect(address).toHaveValue("Dirección del punto nuevo");
+    await expect(address).toHaveValue("Dirección ajustada al arrastrar el pin");
     await expect(save).toBeDisabled();
     for (const theme of ["light", "dark"]) {
       await page.getByLabel("Apariencia").selectOption(theme);

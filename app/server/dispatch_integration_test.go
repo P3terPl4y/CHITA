@@ -54,30 +54,36 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 	otherCompany.register("dispatch-other@chita.test", "company")
 	courier := newClient(t, app)
 	uid := courier.register("dispatch-courier@chita.test", "courier")
+	company.want(403, "POST", "/api/halcon/unlink", map[string]any{})
+	courier.want(204, "POST", "/api/halcon/unlink", map[string]any{})
+	courier.want(204, "DELETE", "/api/halcon", nil) // legacy route remains supported
 	other := newClient(t, app)
 	otherID := other.register("dispatch-other-courier@chita.test", "courier")
 	hidden := newClient(t, app)
 	hidden.register("dispatch-hidden@chita.test", "courier")
 	for _, c := range []*client{company, courier} {
-		c.want(204, "PUT", "/api/profile/location", map[string]any{"address": "Dirección actualizada", "latitude": 23.11345, "longitude": -82.3667})
+		c.want(204, "POST", "/api/profile/location", map[string]any{"address": "Dirección actualizada", "latitude": 23.11345, "longitude": -82.3667})
 		profile := c.want(200, "GET", "/api/profile", nil)["profile"].(map[string]any)
 		if profile["address"] != "Dirección actualizada" {
 			t.Fatal("profile update failed")
 		}
+		// Keep the old idempotent method working for existing clients.
+		c.want(204, "PUT", "/api/profile/location", map[string]any{"address": "Dirección compatible", "latitude": 23.11345, "longitude": -82.3667})
 		c.want(422, "PUT", "/api/profile/location", map[string]any{"address": "No válida", "latitude": 91, "longitude": 0})
 		c.want(422, "PUT", "/api/profile/location", map[string]any{"address": "No válida", "latitude": 23, "longitude": -82, "role": "admin"})
 	}
+	company.want(403, "POST", "/api/availability", map[string]any{"enabled": true, "latitude": 23, "longitude": -82})
 	company.want(403, "PUT", "/api/availability", map[string]any{"enabled": true, "latitude": 23, "longitude": -82})
-	courier.want(422, "PUT", "/api/availability", map[string]any{"enabled": true})
-	consent := courier.want(200, "PUT", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})["token"]
+	courier.want(422, "POST", "/api/availability", map[string]any{"enabled": true})
+	consent := courier.want(200, "POST", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})["token"]
 	courier.want(200, "PUT", "/api/availability", map[string]any{"enabled": true, "token": consent, "latitude": 23.11345, "longitude": -82.3667})
-	courier.want(204, "PUT", "/api/availability", map[string]any{"enabled": false})
-	courier.want(409, "PUT", "/api/availability", map[string]any{"enabled": true, "token": consent, "latitude": 23.11345, "longitude": -82.3667})
-	renewed := courier.want(200, "PUT", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})["token"]
+	courier.want(204, "POST", "/api/availability", map[string]any{"enabled": false})
+	courier.want(409, "POST", "/api/availability", map[string]any{"enabled": true, "token": consent, "latitude": 23.11345, "longitude": -82.3667})
+	renewed := courier.want(200, "POST", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})["token"]
 	if renewed == consent {
 		t.Fatal("revoked consent reused")
 	}
-	other.want(200, "PUT", "/api/availability", map[string]any{"enabled": true, "latitude": 23.115, "longitude": -82.3667})
+	other.want(200, "POST", "/api/availability", map[string]any{"enabled": true, "latitude": 23.115, "longitude": -82.3667})
 	company.want(422, "GET", "/api/couriers/nearby?lat=23&lng=-82&radius=NaN", nil)
 	courier.want(403, "GET", "/api/couriers/nearby?lat=23&lng=-82", nil)
 	list := func() []map[string]any {
@@ -102,14 +108,26 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 			}
 		}
 	}
-	hidden.want(403, "PUT", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
-	company.want(403, "PUT", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
+	hidden.want(403, "POST", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
+	company.want(403, "POST", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
 	// An exclusive-network publication may be proposed to a consenting outside courier.
 	ji := jobInput()
 	job := company.want(201, "POST", "/api/jobs", ji)
 	path := fmt.Sprintf("/api/jobs/%.0f", job["id"])
 	courier.want(404, "GET", path, nil)
 	offer := company.want(201, "POST", path+"/offer", map[string]any{"courier_id": uid})
+	feed := courier.want(200, "GET", "/api/jobs?total=false", nil)
+	if _, ok := feed["total"]; ok {
+		t.Fatal("background feed unexpectedly ran or returned a count")
+	}
+	items := feed["items"].([]any)
+	if len(items) != 1 || uint(items[0].(map[string]any)["id"].(float64)) != uint(job["id"].(float64)) {
+		t.Fatal("background feed changed job visibility")
+	}
+	page := courier.want(200, "GET", "/api/jobs?page=1", nil)
+	if page["total"] != float64(1) {
+		t.Fatal("default pagination total changed", page)
+	}
 	offerPath := fmt.Sprintf("/api/offers/%.0f", offer["id"])
 	courier.want(200, "GET", path, nil)
 	other.want(404, "GET", path, nil)
@@ -125,12 +143,12 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 		t.Fatal("proposal did not assign")
 	}
 	courier.want(409, "POST", offerPath+"/accept", map[string]any{})
-	company.want(403, "PUT", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
+	company.want(403, "POST", fmt.Sprintf("/api/couriers/%d/rating", uid), map[string]any{"rating": 5})
 	if len(list()) != 1 {
 		t.Fatal("busy courier remained available")
 	}
 	company.want(200, "POST", path+"/cancel", map[string]any{"note": "Cancelar trabajo de prueba"})
-	courier.want(200, "PUT", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})
+	courier.want(200, "POST", "/api/availability", map[string]any{"enabled": true, "latitude": 23.11345, "longitude": -82.3667})
 	ji = jobInput()
 	ji["visibility"] = "public"
 	job = company.want(201, "POST", "/api/jobs", ji)
@@ -201,16 +219,16 @@ func TestDispatchLocationsOffersAndRatings(t *testing.T) {
 			t.Fatal("wrong completed count", summary)
 		}
 		if i < 2 {
-			company.want(403, "PUT", ratingPath, map[string]any{"rating": 5})
+			company.want(403, "POST", ratingPath, map[string]any{"rating": 5})
 		}
 	}
-	otherCompany.want(403, "PUT", ratingPath, map[string]any{"rating": 5})
-	company.want(422, "PUT", ratingPath, map[string]any{"rating": 6})
-	company.want(422, "PUT", ratingPath, map[string]any{"rating": 5, "company_id": 2})
+	otherCompany.want(403, "POST", ratingPath, map[string]any{"rating": 5})
+	company.want(422, "POST", ratingPath, map[string]any{"rating": 6})
+	company.want(422, "POST", ratingPath, map[string]any{"rating": 5, "company_id": 2})
 	if _, e := facades.Orm().Query().Where("id=?", completed[0]).Delete(&models.Publication{}); e != nil {
 		t.Fatal(e)
 	}
-	summary := company.want(200, "PUT", ratingPath, map[string]any{"rating": 5, "comment": "Tres entregas confirmadas"})
+	summary := company.want(200, "POST", ratingPath, map[string]any{"rating": 5, "comment": "Tres entregas confirmadas"})
 	if summary["count"].(float64) != 1 || summary["average"].(float64) != 5 {
 		t.Fatal("rating creation failed", summary)
 	}

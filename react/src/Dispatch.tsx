@@ -61,7 +61,7 @@ export function CourierAvailability({
           throw new Error("Este navegador no ofrece GPS");
         const p = await freshPosition(null, navigator.geolocation);
         if (version !== generation.current) return;
-        await api("/availability", "PUT", {
+        await api("/availability", "POST", {
           enabled: true,
           token: consent.current,
           latitude: p.coords.latitude,
@@ -94,7 +94,7 @@ export function CourierAvailability({
     if (hasActiveJob && enabled) {
       generation.current++;
       setEnabled(false);
-      void api("/availability", "PUT", { enabled: false }).catch(() => {});
+      void api("/availability", "POST", { enabled: false }).catch(() => {});
     }
   }, [hasActiveJob, enabled]);
   async function toggle() {
@@ -105,7 +105,7 @@ export function CourierAvailability({
     try {
       if (enabled) {
         setEnabled(false);
-        await api("/availability", "PUT", { enabled: false });
+        await api("/availability", "POST", { enabled: false });
       } else {
         if (!navigator.geolocation)
           throw new Error(
@@ -113,7 +113,7 @@ export function CourierAvailability({
           );
         const p = await freshPosition(null, navigator.geolocation);
         if (version !== generation.current) return;
-        const response = await api<{ token: string }>("/availability", "PUT", {
+        const response = await api<{ token: string }>("/availability", "POST", {
           enabled: true,
           latitude: p.coords.latitude,
           longitude: p.coords.longitude,
@@ -352,6 +352,18 @@ export function CompanyDiscovery({
     [notice, setNotice] = useState("");
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const generation = useRef(0);
+  useEffect(() => {
+    if (selectedCourier == null) return;
+    const card = document.getElementById(`nearby-courier-${selectedCourier}`);
+    if (!card) return;
+    card.scrollIntoView({
+      block: "nearest",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    });
+    card.focus({ preventScroll: true });
+  }, [selectedCourier]);
   const latitude = job?.pickup_lat ?? profile?.latitude,
     longitude = job?.pickup_lng ?? profile?.longitude;
   async function load() {
@@ -460,21 +472,31 @@ export function CompanyDiscovery({
       )}
       {latitude != null && longitude != null && (
         <PointMap
-          label="Mapa de repartidores disponibles y origen de búsqueda"
+          label="Mapa de repartidores disponibles, recogida y entrega"
           points={[
             {
               latitude,
               longitude,
               label: job?.pickup_address ?? profile?.address ?? "Origen",
+              kind: job ? "pickup" : "origin",
             },
+            ...(job ? [{
+              latitude: job.dropoff_lat,
+              longitude: job.dropoff_lng,
+              label: job.dropoff_address,
+              kind: "dropoff" as const,
+            }] : []),
             ...rows.map((c) => ({
               latitude: c.latitude,
               longitude: c.longitude,
               label: c.name,
               id: c.id,
+              kind: "courier" as const,
             })),
           ]}
           select={setSelectedCourier}
+          selectedId={selectedCourier}
+          viewKey={job?.id ?? `profile:${latitude}:${longitude}`}
         />
       )}
       <p className="muted" aria-live="polite">
@@ -489,6 +511,8 @@ export function CompanyDiscovery({
               "nearby-card " + (selectedCourier === c.id ? "selected" : "")
             }
             key={c.id}
+            id={`nearby-courier-${c.id}`}
+            tabIndex={-1}
           >
             <h3>{c.name}</h3>
             <p>

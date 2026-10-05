@@ -1,13 +1,33 @@
 package config
 
 import (
+	"fmt"
 	"github.com/goravel/framework/contracts/database/driver"
 	postgresfacades "github.com/goravel/postgres/facades"
 	"goravel/app/facades"
+	"log"
+	"strconv"
+	"strings"
 )
+
+func poolLimit(config interface{ Env(string, ...any) any }, key string, fallback, maximum int) int {
+	raw := strings.TrimSpace(fmt.Sprint(config.Env(key, fallback)))
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		log.Printf("%s debe ser un entero positivo; se usa %d", key, fallback)
+		return fallback
+	}
+	if value > maximum {
+		log.Printf("%s supera el máximo seguro de %d; se limita", key, maximum)
+		return maximum
+	}
+	return value
+}
 
 func init() {
 	config := facades.Config()
+	maxOpenConns := poolLimit(config, "DB_MAX_OPEN_CONNS", 32, 96)
+	maxIdleConns := poolLimit(config, "DB_MAX_IDLE_CONNS", 10, maxOpenConns)
 	config.Add("database", map[string]any{
 		// Default database connection name
 		"default": config.Env("DB_CONNECTION"),
@@ -37,7 +57,7 @@ func init() {
 			// then the new MaxIdleConns will be reduced to match the MaxOpenConns limit.
 			//
 			// If n <= 0, no idle connections are retained.
-			"max_idle_conns": 10,
+			"max_idle_conns": maxIdleConns,
 			// Sets the maximum number of open connections to the database.
 			//
 			// If MaxIdleConns is greater than 0 and the new MaxOpenConns is less than
@@ -45,7 +65,7 @@ func init() {
 			// MaxOpenConns limit.
 			//
 			// If n <= 0, then there is no limit on the number of open connections.
-			"max_open_conns": 32,
+			"max_open_conns": maxOpenConns,
 			// Sets the maximum amount of time a connection may be idle.
 			//
 			// Expired connections may be closed lazily before reuse.

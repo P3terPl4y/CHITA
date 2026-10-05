@@ -93,7 +93,10 @@ test("respuesta antigua de dirección no sobrescribe el último punto", async ({
   await page.goto("/registro");
   const map = page.getByRole("region", { name: "Elegir dirección del perfil" });
   await map.click({ position: { x: 170, y: 120 } });
-  await map.click({ position: { x: 220, y: 160 } });
+  // Pick a clearly separate point from the pin that recenters after the first click.
+  await expect.poll(() => count).toBe(1);
+  await map.click({ position: { x: 300, y: 210 } });
+  await expect.poll(() => count).toBe(2);
   await expect(page.getByLabel("Dirección de referencia")).toHaveValue(
     "Dirección nueva",
   );
@@ -101,6 +104,43 @@ test("respuesta antigua de dirección no sobrescribe el último punto", async ({
   await expect(page.getByLabel("Dirección de referencia")).toHaveValue(
     "Dirección nueva",
   );
+});
+test("la búsqueda de dirección centra el pin sin geocodificar dos veces", async ({ page }) => {
+  let reverseCalls = 0;
+  let searched = "";
+  await page.route("**/api/maps/search?**", (route) => {
+    const url = new URL(route.request().url());
+    searched = url.searchParams.get("q") ?? "";
+    expect([...url.searchParams.keys()]).toEqual(["q"]);
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        { address: "Calle Central 12, Habana, Cuba", latitude: 23.1, longitude: -82.3 },
+      ]),
+    });
+  });
+  await page.route("**/api/maps/reverse?**", (route) => {
+    reverseCalls++;
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ address: "Punto elegido en el mapa" }),
+    });
+  });
+  await page.goto("/registro");
+  const search = page.getByRole("search", { name: "Buscar dirección o lugar" });
+  const input = search.getByLabel("Buscar una calle o lugar");
+  await input.fill("Calle Central 12");
+  await input.press("Enter");
+  const result = search.getByRole("button", { name: /Calle Central 12, Habana, Cuba/ });
+  await expect(result).toBeVisible();
+  expect(searched).toBe("Calle Central 12");
+  await result.click();
+  await expect(page.getByLabel("Dirección de referencia")).toHaveValue(
+    "Calle Central 12, Habana, Cuba",
+  );
+  await expect(page.getByLabel("Latitud", { exact: true })).toHaveValue("23.1");
+  await expect(page.getByLabel("Longitud", { exact: true })).toHaveValue("-82.3");
+  expect(reverseCalls).toBe(0);
 });
 async function fixture(page: Page, role: "company" | "courier") {
   const now = Date.now();
@@ -128,8 +168,10 @@ async function fixture(page: Page, role: "company" | "courier") {
     cancellation_reason: "",
   };
   let proposed = false;
+  let nearbyReads = 0;
   const calls: string[] = [];
   await page.route("**/api/**", (r) => {
+    expect(["PUT", "DELETE"]).not.toContain(r.request().method());
     const url = new URL(r.request().url());
     const path = url.pathname;
     calls.push(path + ":" + r.request().method());
@@ -157,13 +199,14 @@ async function fixture(page: Page, role: "company" | "courier") {
         profile: { address: "Mi dirección", latitude: 23.1, longitude: -82.3 },
       };
     else if (path === "/api/halcon") data = { linked: false };
-    else if (path === "/api/couriers/nearby")
+    else if (path === "/api/couriers/nearby") {
+      nearbyReads++;
       data = [
         {
           id: 9,
           name: "Repartidor Cercano",
           vehicle_type: "bicycle",
-          latitude: 23.11,
+          latitude: 23.11 + nearbyReads * 0.05,
           longitude: -82.31,
           last_seen: new Date(now).toISOString(),
           distance_km: 1.2,
@@ -173,6 +216,7 @@ async function fixture(page: Page, role: "company" | "courier") {
           pending_offer: proposed,
         },
       ];
+    }
     else if (path === "/api/jobs/3/offer") {
       proposed = true;
       data = offer;
@@ -191,20 +235,62 @@ async function fixture(page: Page, role: "company" | "courier") {
       body: JSON.stringify(data),
     });
   });
-  return calls;
+  return { calls, nearbyReads: () => nearbyReads };
 }
 test("empresa encuentra cercanos y envía propuesta; paneles accesibles", async ({
   page,
 }) => {
-  const calls = await fixture(page, "company");
+  const { calls, nearbyReads } = await fixture(page, "company");
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Secciones", exact: true })
     .getByRole("button", { name: "Buscar repartidores", exact: true })
     .click();
+  await page.getByRole("combobox", { name: "Trabajo para proponer" }).selectOption("3");
   await expect(
     page.getByRole("heading", { name: "Repartidor Cercano" }),
   ).toBeVisible();
+  const map = page.getByRole("region", {
+    name: "Mapa de repartidores disponibles, recogida y entrega",
+  });
+  await expect(page.getByRole("list", { name: "Leyenda del mapa" })).toContainText("Recogida");
+  await expect(page.getByRole("list", { name: "Leyenda del mapa" })).toContainText("Entrega");
+  await expect(page.getByRole("list", { name: "Leyenda del mapa" })).toContainText("Repartidor");
+  const courierMarker = map.locator(
+    '.leaflet-marker-icon[title="Seleccionar repartidor: Repartidor Cercano"]',
+  );
+  await expect(courierMarker).toHaveAttribute("tabindex", "0");
+  await courierMarker.focus();
+  await page.keyboard.press("Enter");
+  const selectedCard = page.locator("#nearby-courier-9");
+  await expect(selectedCard).toBeFocused();
+  await map.scrollIntoViewIfNeeded();
+  await map.getByRole("button", { name: "Acercar el mapa", exact: true }).click();
+  // Let Leaflet finish its user-requested zoom animation before measuring.
+  await page.waitForTimeout(300);
+  const pickupMarker = map.locator('.leaflet-marker-icon[title="recogida: Recogida 1"]');
+  const dropoffMarker = map.locator('.leaflet-marker-icon[title="entrega: Entrega 2"]');
+  const pickupBefore = await pickupMarker.boundingBox();
+  const dropoffBefore = await dropoffMarker.boundingBox();
+  expect(pickupBefore).not.toBeNull();
+  expect(dropoffBefore).not.toBeNull();
+  const distanceBefore = Math.hypot(
+    pickupBefore!.x - dropoffBefore!.x,
+    pickupBefore!.y - dropoffBefore!.y,
+  );
+  await page.getByRole("button", { name: "Actualizar cercanía", exact: true }).click();
+  await expect.poll(() => nearbyReads()).toBeGreaterThanOrEqual(2);
+  const pickupAfter = await pickupMarker.boundingBox();
+  const dropoffAfter = await dropoffMarker.boundingBox();
+  expect(pickupAfter).not.toBeNull();
+  expect(dropoffAfter).not.toBeNull();
+  const distanceAfter = Math.hypot(
+    pickupAfter!.x - dropoffAfter!.x,
+    pickupAfter!.y - dropoffAfter!.y,
+  );
+  // A small delta is expected when Firefox lays out the page scrollbar; a
+  // lost zoom level changes this several times more (the points are fixed).
+  expect(Math.abs(distanceAfter - distanceBefore)).toBeLessThan(8);
   await page
     .getByRole("combobox", { name: "Trabajo para proponer" })
     .selectOption("3");
@@ -252,7 +338,7 @@ test("repartidor activa disponibilidad voluntaria y puede rechazar propuestas", 
 }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 23.1, longitude: -82.3 });
-  const calls = await fixture(page, "courier");
+  const { calls } = await fixture(page, "courier");
   await page.goto("/");
   await page.getByRole("button", { name: "Mostrarme disponible" }).click();
   await expect(
@@ -270,13 +356,36 @@ test("repartidor activa disponibilidad voluntaria y puede rechazar propuestas", 
     .click();
   await page.getByRole("button", { name: "Rechazar propuesta" }).click();
   expect(calls).toContain("/api/offers/5/decline:POST");
-  expect(calls.filter((x) => x === "/api/availability:PUT")).toHaveLength(2);
+  expect(calls.filter((x) => x === "/api/availability:POST")).toHaveLength(2);
   expect(
     (await new AxeBuilder({ page }).analyze()).violations.map((v) => ({
       id: v.id,
       nodes: v.nodes.map((n) => n.target),
     })),
   ).toEqual([]);
+});
+
+test("el selector conserva el pin manual si falla la capa de calles", async ({ page }) => {
+  await page.route("https://tile.openstreetmap.org/**", (route) =>
+    route.fulfill({ status: 503, contentType: "text/plain", body: "unavailable" }),
+  );
+  await page.route("**/api/maps/reverse?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ address: "Punto manual válido" }),
+    }),
+  );
+  await page.goto("/registro");
+  const map = page.getByRole("region", { name: "Elegir dirección del perfil" });
+  await expect(
+    page.getByRole("status").filter({ hasText: "No cargaron algunas calles" }),
+  ).toBeVisible();
+  await map.click({ position: { x: 170, y: 110 } });
+  await expect(page.getByLabel("Dirección de referencia")).toHaveValue(
+    "Punto manual válido",
+  );
+  await expect(page.getByLabel("Latitud", { exact: true })).not.toHaveValue("");
+  await expect(page.getByLabel("Longitud", { exact: true })).not.toHaveValue("");
 });
 
 test("propuesta real y calificación sólo tras tres entregas confirmadas", async ({

@@ -40,6 +40,7 @@ func TestDirectoryInvitationsAndOwnAvatar(t *testing.T) {
 	anon := newClient(t, app)
 	anon.want(401, "GET", "/api/couriers/directory", nil)
 	anon.want(401, "PUT", "/api/profile/avatar", map[string]any{"avatar": ""})
+	anon.want(401, "POST", "/api/profile/avatar", map[string]any{"avatar": ""})
 	company := newClient(t, app)
 	companyID := company.register("directory-company@chita.test", "company")
 	otherCompany := newClient(t, app)
@@ -94,10 +95,12 @@ func TestDirectoryInvitationsAndOwnAvatar(t *testing.T) {
 	var b bytes.Buffer
 	_ = png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 128, 128)))
 	photo := "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
-	normalized := courier.want(200, "PUT", "/api/profile/avatar", map[string]any{"avatar": photo})["avatar_url"].(string)
+	normalized := courier.want(200, "POST", "/api/profile/avatar", map[string]any{"avatar": photo})["avatar_url"].(string)
 	if !strings.HasPrefix(normalized, "data:image/jpeg;base64,") {
 		t.Fatal("photo was not normalized")
 	}
+	courier.want(200, "PUT", "/api/profile/avatar", map[string]any{"avatar": photo})
+	courier.want(422, "POST", "/api/profile/avatar", map[string]any{"avatar": photo, "user_id": otherID})
 	courier.want(422, "PUT", "/api/profile/avatar", map[string]any{"avatar": photo, "user_id": otherID})
 	courier.want(422, "PUT", "/api/profile/avatar", map[string]any{})
 	courier.want(422, "PUT", "/api/profile/avatar", map[string]any{"avatar": "https://example.com/photo.svg"})

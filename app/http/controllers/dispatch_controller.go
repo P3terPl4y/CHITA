@@ -11,6 +11,14 @@ import (
 
 type DispatchController struct{ Geocoder *services.Geocoder }
 
+func (d *DispatchController) Search(c fiber.Ctx) error {
+	results, err := d.Geocoder.Search(c.Context(), c.Query("q"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
 func (d *DispatchController) Reverse(c fiber.Ctx) error {
 	lat, e1 := strconv.ParseFloat(c.Query("lat"), 64)
 	lng, e2 := strconv.ParseFloat(c.Query("lng"), 64)
@@ -123,7 +131,7 @@ func (d *DispatchController) Rating(c fiber.Ctx) error {
 	if e != nil {
 		return e
 	}
-	if c.Method() == "PUT" {
+	if c.Method() != "GET" {
 		var r services.RatingInput
 		if e := Decode(c, &r); e != nil {
 			return e

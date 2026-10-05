@@ -113,10 +113,44 @@ func JobScope(q orm.Query, u *models.User) orm.Query {
 		return q.Where("1=0")
 	}
 	now := time.Now().UTC()
-	return q.Where("assigned_courier_id=? OR (status='published' AND expires_at>? AND EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.status='active' AND c.deleted_at IS NULL) AND (visibility='public' OR EXISTS(SELECT 1 FROM company_members m WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted') OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)) AND (NOT EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.status='pending' AND o.expires_at>?) OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)))", u.ID, now, u.ID, u.ID, now, now, u.ID, now)
+	return q.Where("publications.assigned_courier_id=? OR (publications.status='published' AND publications.expires_at>? AND EXISTS(SELECT 1 FROM companies c WHERE c.id=publications.company_id AND c.status='active' AND c.deleted_at IS NULL) AND (publications.visibility='public' OR EXISTS(SELECT 1 FROM company_members m WHERE m.company_id=publications.company_id AND m.user_id=? AND m.status='accepted') OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)) AND (NOT EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.status='pending' AND o.expires_at>?) OR EXISTS(SELECT 1 FROM delivery_offers o WHERE o.publication_id=publications.id AND o.courier_user_id=? AND o.status='pending' AND o.expires_at>?)))", u.ID, now, u.ID, u.ID, now, now, u.ID, now)
 }
 
 type JobLocation struct{ Latitude, Longitude float64 }
+
+// jobFeedRow limits feed reads to fields exposed by the DTO and joins related
+// display data in one query instead of loading full related models.
+type jobFeedRow struct {
+	ID                    uint
+	CompanyID             uint
+	Title                 string
+	Description           string
+	Status                string
+	AssignedCourierID     *uint
+	PickupAddressText     string
+	PickupLat             float64
+	PickupLng             float64
+	DropoffAddressText    string
+	DropoffLat            float64
+	DropoffLng            float64
+	ScheduledPickupFrom   time.Time
+	ScheduledPickupTo     time.Time
+	ScheduledDeliveryFrom time.Time
+	ScheduledDeliveryTo   time.Time
+	OfferedPriceCents     int64
+	Currency              string
+	ReportedAt            *time.Time
+	ConfirmedAt           *time.Time
+	CancellationReason    string
+	Visibility            string
+	CompanyName           *string    `gorm:"column:company_name"`
+	CourierName           *string    `gorm:"column:courier_name"`
+	OfferID               *uint      `gorm:"column:offer_id"`
+	OfferCourierUserID    *uint      `gorm:"column:offer_courier_user_id"`
+	OfferStatus           *string    `gorm:"column:offer_status"`
+	OfferExpiresAt        *time.Time `gorm:"column:offer_expires_at"`
+	OfferRespondedAt      *time.Time `gorm:"column:offer_responded_at"`
+}
 
 // Great-circle distance, not a road route or an estimated travel time.
 func PickupDistance(a, b JobLocation) float64 {
@@ -127,13 +161,13 @@ func PickupDistance(a, b JobLocation) float64 {
 	return 6371 * 2 * math.Asin(math.Sqrt(math.Max(0, math.Min(1, h))))
 }
 
-func Jobs(u *models.User, page int, locations ...JobLocation) ([]models.Publication, int64, error) {
+func Jobs(u *models.User, page int, includeTotal bool, locations ...JobLocation) ([]models.Publication, int64, error) {
 	if page < 1 || page > 100000 {
 		page = 1
 	}
-	out := make([]models.Publication, 0)
+	out := make([]models.Publication, 0, 30)
 	var total int64
-	q := JobScope(facades.Orm().Query().Model(&models.Publication{}), u).With("Company").With("Courier")
+	q := JobScope(facades.Orm().Query().Model(&models.Publication{}), u)
 	var origin *JobLocation
 	if u.Role == "courier" {
 		if len(locations) > 0 {
@@ -150,24 +184,74 @@ func Jobs(u *models.User, page int, locations ...JobLocation) ([]models.Publicat
 				origin = &JobLocation{profile.Latitude, profile.Longitude}
 			}
 		}
-		q = q.OrderByRaw("CASE WHEN status IN ('accepted','picked_up','arrived','delivery_reported') THEN 0 WHEN status='published' THEN 1 ELSE 2 END")
+	}
+	var err error
+	if includeTotal {
+		total, err = q.Count()
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	now := time.Now().UTC()
+	feed := q.
+		Join("LEFT JOIN companies AS job_company ON job_company.id=publications.company_id").
+		Join("LEFT JOIN users AS job_courier ON job_courier.id=publications.assigned_courier_id").
+		Join("LEFT JOIN delivery_offers AS job_offer ON job_offer.publication_id=publications.id AND job_offer.status=? AND job_offer.expires_at>?", "pending", now).
+		Select(
+			"publications.id", "publications.company_id", "publications.title", "publications.description", "publications.status", "publications.assigned_courier_id",
+			"publications.pickup_address_text", "publications.pickup_lat", "publications.pickup_lng", "publications.dropoff_address_text", "publications.dropoff_lat", "publications.dropoff_lng",
+			"publications.scheduled_pickup_from", "publications.scheduled_pickup_to", "publications.scheduled_delivery_from", "publications.scheduled_delivery_to",
+			"publications.offered_price_cents", "publications.currency", "publications.reported_at", "publications.confirmed_at", "publications.cancellation_reason", "publications.visibility",
+			"job_company.trade_name AS company_name", "job_courier.display_name AS courier_name",
+			"job_offer.id AS offer_id", "job_offer.courier_user_id AS offer_courier_user_id", "job_offer.status AS offer_status", "job_offer.expires_at AS offer_expires_at", "job_offer.responded_at AS offer_responded_at",
+		)
+	if u.Role == "courier" {
+		feed = feed.OrderByRaw("CASE WHEN publications.status IN ('accepted','picked_up','arrived','delivery_reported') THEN 0 WHEN publications.status='published' THEN 1 ELSE 2 END")
 		if origin != nil {
 			// Only finite, validated numbers enter this fixed SQL expression.
-			q = q.OrderByRaw(fmt.Sprintf("CASE WHEN status='published' THEN acos(least(1.0,greatest(-1.0,sin(radians(%.10f))*sin(radians(pickup_lat))+cos(radians(%.10f))*cos(radians(pickup_lat))*cos(radians(pickup_lng-(%.10f)))))) ELSE 0 END", origin.Latitude, origin.Latitude, origin.Longitude))
+			feed = feed.OrderByRaw(fmt.Sprintf("CASE WHEN publications.status='published' THEN acos(least(1.0,greatest(-1.0,sin(radians(%.10f))*sin(radians(publications.pickup_lat))+cos(radians(%.10f))*cos(radians(publications.pickup_lat))*cos(radians(publications.pickup_lng-(%.10f)))))) ELSE 0 END", origin.Latitude, origin.Latitude, origin.Longitude))
 		}
-		q = q.OrderBy("scheduled_pickup_to")
+		feed = feed.OrderBy("publications.scheduled_pickup_to")
 	}
-	err := q.OrderByDesc("id").Paginate(page, 30, &out, &total)
-	if origin != nil {
-		for i := range out {
-			d := PickupDistance(*origin, JobLocation{out[i].PickupLat, out[i].PickupLng})
-			out[i].PickupDistanceKm = &d
+	var rows []jobFeedRow
+	err = feed.OrderByDesc("publications.id").Offset((page - 1) * 30).Limit(30).Find(&rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, row := range rows {
+		job := models.Publication{
+			Title: row.Title, Description: row.Description, Status: row.Status, CompanyID: row.CompanyID,
+			AssignedCourierID: row.AssignedCourierID, PickupAddressText: row.PickupAddressText,
+			PickupLat: row.PickupLat, PickupLng: row.PickupLng, DropoffAddressText: row.DropoffAddressText,
+			DropoffLat: row.DropoffLat, DropoffLng: row.DropoffLng, ScheduledPickupFrom: row.ScheduledPickupFrom,
+			ScheduledPickupTo: row.ScheduledPickupTo, ScheduledDeliveryFrom: row.ScheduledDeliveryFrom,
+			ScheduledDeliveryTo: row.ScheduledDeliveryTo, OfferedPriceCents: row.OfferedPriceCents,
+			Currency: row.Currency, ReportedAt: row.ReportedAt, ConfirmedAt: row.ConfirmedAt,
+			CancellationReason: row.CancellationReason, Visibility: row.Visibility,
 		}
+		job.ID = row.ID
+		if row.CompanyName != nil {
+			job.Company = &models.Company{TradeName: *row.CompanyName}
+			job.Company.ID = row.CompanyID
+		}
+		if row.CourierName != nil && row.AssignedCourierID != nil {
+			job.Courier = &models.User{DisplayName: *row.CourierName}
+			job.Courier.ID = *row.AssignedCourierID
+		}
+		if row.OfferID != nil && row.OfferCourierUserID != nil && row.OfferStatus != nil && row.OfferExpiresAt != nil {
+			job.PendingOffer = &models.DeliveryOffer{
+				PublicationID: row.ID, CourierUserID: *row.OfferCourierUserID,
+				Status: *row.OfferStatus, ExpiresAt: *row.OfferExpiresAt, RespondedAt: row.OfferRespondedAt,
+			}
+			job.PendingOffer.ID = *row.OfferID
+		}
+		if origin != nil {
+			distance := PickupDistance(*origin, JobLocation{row.PickupLat, row.PickupLng})
+			job.PickupDistanceKm = &distance
+		}
+		out = append(out, job)
 	}
-	if err == nil {
-		err = attachOffers(facades.Orm().Query(), out)
-	}
-	return out, total, err
+	return out, total, nil
 }
 func GetJob(u *models.User, id uint) (*models.Publication, error) {
 	var p models.Publication

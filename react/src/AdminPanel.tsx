@@ -239,7 +239,7 @@ export function AdminPanel({
       const url =
         `/admin/${section}` +
         (editor && editor !== "new" ? `/${editor.id}` : "");
-      await api(url, editor === "new" ? "POST" : "PUT", body);
+      await api(url, "POST", body);
       setEditor(null);
       setDetail(null);
       setRevision((x) => x + 1);
@@ -597,11 +597,13 @@ export function AdminPanel({
                       latitude: detail.pickup_lat,
                       longitude: detail.pickup_lng,
                       label: detail.pickup_address,
+                      kind: "pickup",
                     },
                     {
                       latitude: detail.dropoff_lat,
                       longitude: detail.dropoff_lng,
                       label: detail.dropoff_address,
+                      kind: "dropoff",
                     },
                   ]
                 : [
@@ -609,9 +611,13 @@ export function AdminPanel({
                       latitude: detail.latitude,
                       longitude: detail.longitude,
                       label: detail.address,
+                      kind: "account",
                     },
                   ]
             }
+            viewKey={jobRow(detail)
+              ? `job-${detail.id}-${detail.pickup_lat}-${detail.pickup_lng}-${detail.dropoff_lat}-${detail.dropoff_lng}`
+              : `account-${detail.id}-${detail.latitude}-${detail.longitude}`}
           />
           <dl className="admin-detail">
             {Object.entries(detail)
@@ -919,9 +925,8 @@ export function AdminPanel({
               void run(async () => {
                 const action = change.action;
                 await api(
-                  `/admin/${section}/${change.row.id}` +
-                    (action === "archive" ? "" : `/${action}`),
-                  action === "archive" ? "DELETE" : "POST",
+                  `/admin/${section}/${change.row.id}/${action}`,
+                  "POST",
                   { version: change.row.version, reason: f.get("reason") },
                 );
                 setChange(null);

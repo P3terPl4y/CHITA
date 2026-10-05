@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import { LocationPicker } from "./Map";
 type Profile = { address: string; latitude: number; longitude: number };
@@ -7,32 +7,53 @@ export function ProfileLocation({
   saved,
 }: {
   profile: Profile;
-  saved: () => Promise<void>;
+  saved: (profile: Profile) => void;
 }) {
   const [point, setPoint] = useState({
     latitude: profile.latitude,
     longitude: profile.longitude,
   });
+  const [address, setAddress] = useState(profile.address);
   const [busy, setBusy] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [mapFeedback, setMapFeedback] = useState("");
   const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (dirty || busy) return;
+    setPoint({ latitude: profile.latitude, longitude: profile.longitude });
+    setAddress(profile.address);
+  }, [profile.address, profile.latitude, profile.longitude, dirty, busy]);
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy || resolving || !dirty) return;
-    const data = new FormData(e.currentTarget);
+    const next = {
+      address: address.trim(),
+      latitude: Number(point.latitude),
+      longitude: Number(point.longitude),
+    };
+    if (
+      next.address.length < 3 ||
+      next.address.length > 255 ||
+      !Number.isFinite(next.latitude) ||
+      !Number.isFinite(next.longitude) ||
+      Math.abs(next.latitude) > 90 ||
+      Math.abs(next.longitude) > 180
+    ) {
+      setError("Revisa la dirección y el punto seleccionado en el mapa.");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await api("/profile/location", "PUT", {
-        address: data.get("address"),
-        latitude: Number(data.get("latitude")),
-        longitude: Number(data.get("longitude")),
-      });
-      await saved();
+      // Cloudflare's current edge policy rejects PUT before the request reaches
+      // Fiber. POST is allowed through and remains protected by CSRF + auth.
+      await api("/profile/location", "POST", next);
+      saved(next);
       setDirty(false);
       setMessage("Ubicación guardada");
     } catch (e) {
@@ -62,8 +83,7 @@ export function ProfileLocation({
         <div>
           <h3>Tu ubicación</h3>
           <p className="muted">
-            Toca el punto correcto en el mapa y guarda. También puedes usar tu
-            ubicación actual.
+            Ajusta el punto y revisa la dirección sugerida antes de guardar.
           </p>
         </div>
       </div>
@@ -83,24 +103,41 @@ export function ProfileLocation({
             setPoint(selected);
             changed();
           }}
+          onAddress={setAddress}
           onBusyChange={setResolving}
+          onStatusChange={setMapFeedback}
         />
         <label>
           Dirección seleccionada
           <input
             name="address"
-            defaultValue={profile.address}
+            value={address}
             required
             minLength={3}
             maxLength={255}
             disabled={busy}
-            onChange={changed}
+            onChange={(event) => {
+              setAddress(event.target.value);
+              setMapFeedback("");
+              changed();
+            }}
           />
+          {/no se pudo|no se encontró|proveedor|espera un momento/i.test(mapFeedback) && (
+            <small className="map-address-feedback" role="status">
+              No pudimos sugerir una dirección. Escribe o corrige la referencia;
+              el punto seleccionado se conserva.
+            </small>
+          )}
         </label>
-        <small className="muted">
-          La dirección es aproximada. Corrígela o añade una referencia si hace
-          falta.
-        </small>
+        <div className="location-details">
+          <small className="muted">
+            La dirección sugerida es aproximada; puedes corregirla o añadir una
+            referencia.
+          </small>
+          <span className="location-coordinates" aria-label="Coordenadas seleccionadas">
+            {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}
+          </span>
+        </div>
         {error && (
           <p className="error" role="alert">
             {error}
@@ -129,6 +166,7 @@ export function ProfileLocation({
                     latitude: profile.latitude,
                     longitude: profile.longitude,
                   });
+                  setAddress(profile.address);
                   setRevision((r) => r + 1);
                   setDirty(false);
                   setError("");
@@ -139,7 +177,7 @@ export function ProfileLocation({
               </button>
             )}
             <button className="primary" disabled={busy || resolving || !dirty}>
-              {busy ? "Guardando…" : "Guardar ubicación"}
+              {busy ? "Guardando ubicación…" : "Guardar ubicación"}
             </button>
           </div>
         </div>

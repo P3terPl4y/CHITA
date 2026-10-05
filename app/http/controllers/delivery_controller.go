@@ -42,10 +42,7 @@ func Identity(c fiber.Ctx) (*models.User, error) {
 		return nil, services.Fail(401, "Inicia sesión")
 	}
 	token, _ := session.FromContext(c).Get("auth_grant").(string)
-	if err := services.CheckGrant(id, token); err != nil {
-		return nil, err
-	}
-	return services.User(id)
+	return services.AuthenticatedUser(id, token)
 }
 func Require(c fiber.Ctx) error {
 	u, e := Identity(c)
@@ -190,7 +187,8 @@ func (d *DeliveryController) Jobs(c fiber.Ctx) error {
 		}
 		locations = append(locations, services.JobLocation{Latitude: lat, Longitude: lng})
 	}
-	p, n, e := services.Jobs(current(c), page, locations...)
+	includeTotal := c.Query("total") != "false"
+	p, n, e := services.Jobs(current(c), page, includeTotal, locations...)
 	if e != nil {
 		return e
 	}
@@ -198,7 +196,11 @@ func (d *DeliveryController) Jobs(c fiber.Ctx) error {
 	for i := range p {
 		out = append(out, jobDTO(&p[i]))
 	}
-	return c.JSON(fiber.Map{"items": out, "total": n, "page": page})
+	response := fiber.Map{"items": out, "page": page}
+	if includeTotal {
+		response["total"] = n
+	}
+	return c.JSON(response)
 }
 func (d *DeliveryController) Job(c fiber.Ctx) error {
 	n, e := id(c)

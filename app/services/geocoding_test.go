@@ -45,3 +45,48 @@ func TestReverseGeocoderFailures(t *testing.T) {
 		})
 	}
 }
+
+func TestForwardGeocoderSearchParsesAndCachesPlaces(t *testing.T) {
+	var requests atomic.Int64
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.URL.Path != "/api/" || r.URL.Query().Get("q") != "Calle Central 12" || r.URL.Query().Get("limit") != "5" || r.URL.Query().Has("lang") || r.Header.Get("User-Agent") == "" {
+			t.Errorf("unexpected Photon search: %s, UA=%q", r.URL.String(), r.Header.Get("User-Agent"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"features":[{"geometry":{"coordinates":[-82.3,23.1]},"properties":{"street":"Calle Central","housenumber":"12","city":"Habana","country":"Cuba"}},{"geometry":{"coordinates":[181,0]},"properties":{"name":"Punto inválido","city":"Lugar"}}]}`))
+	}))
+	defer provider.Close()
+	geo := NewGeocoder(provider.URL)
+	results, err := geo.Search(context.Background(), " Calle Central 12 ")
+	if err != nil || len(results) != 1 {
+		t.Fatalf("Search returned %v, %v", results, err)
+	}
+	if results[0].Address != "Calle Central 12, Habana, Cuba" || results[0].Latitude != 23.1 || results[0].Longitude != -82.3 {
+		t.Fatalf("unexpected result: %+v", results[0])
+	}
+	results[0].Address = "mutated"
+	cached, err := geo.Search(context.Background(), "calle central 12")
+	if err != nil || requests.Load() != 1 || cached[0].Address != "Calle Central 12, Habana, Cuba" {
+		t.Fatalf("search cache is invalid: %+v, requests=%d, err=%v", cached, requests.Load(), err)
+	}
+}
+
+func TestForwardGeocoderSearchValidationAndEmptyResults(t *testing.T) {
+	var requests atomic.Int64
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_, _ = w.Write([]byte(`{"features":[]}`))
+	}))
+	defer provider.Close()
+	geo := NewGeocoder(provider.URL)
+	if _, err := geo.Search(context.Background(), "  "); err == nil {
+		t.Fatal("empty search accepted")
+	}
+	if requests.Load() != 0 {
+		t.Fatal("invalid query reached provider")
+	}
+	if _, err := geo.Search(context.Background(), "Avenida Central"); err == nil {
+		t.Fatal("empty result set accepted")
+	}
+}

@@ -198,7 +198,7 @@ func TestLoadOneThousandUsers(t *testing.T) {
 		go func(v *loadVU) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			for _, path := range []string{"/api/session", "/api/profile", "/api/jobs"} {
+			for _, path := range []string{"/api/session", "/api/profile", "/api/jobs?total=false"} {
 				if _, _, e := v.request("GET", path, nil, 200); e != nil {
 					burstErrs <- e
 				}
@@ -213,7 +213,7 @@ func TestLoadOneThousandUsers(t *testing.T) {
 		t.Error(e)
 	}
 	t.Logf("completed %d authenticated read requests from %d concurrent virtual users in %s; failures=%d", users*3, users, time.Since(start).Round(time.Millisecond), burstFailures)
-	for _, endpoint := range []string{"/api/session", "/api/profile", "/api/jobs"} {
+	for _, endpoint := range []string{"/api/session", "/api/profile", "/api/jobs?total=false"} {
 		p50, p95, maximum := metrics.summary(endpoint)
 		t.Logf("burst %s latency p50=%s p95=%s max=%s", endpoint, p50, p95, maximum)
 	}

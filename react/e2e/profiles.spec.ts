@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 async function fixture(page: import("@playwright/test").Page, role = "company") {
-  let avatar = "", failPhoto = false, failList = false, membership = "none", identity = 3;
+  let avatar = "", failPhoto = false, failList = false, membership = "none", identity = 3, directoryReads = 0;
   let holdPhoto = false;
   let releasePhoto: (() => void) | undefined;
   const calls: unknown[] = [];
@@ -16,6 +16,7 @@ async function fixture(page: import("@playwright/test").Page, role = "company") 
     if (url.pathname === "/api/halcon") data = { linked: false };
     if (url.pathname.endsWith("/rating")) data = { average: 0, count: 0, can_rate: false, completed_jobs: 0, rating: null };
     if (url.pathname === "/api/couriers/directory") {
+      directoryReads++;
       if (failList) return route.fulfill({ status: 503, json: { error: "No se pudo cargar el directorio" } });
       const search = url.searchParams.get("search");
       const second = url.searchParams.get("page") === "2";
@@ -25,13 +26,14 @@ async function fixture(page: import("@playwright/test").Page, role = "company") 
       calls.push(route.request().postDataJSON()); membership = "pending"; data = { id: 4, status: "pending" };
     }
     if (url.pathname === "/api/profile/avatar") {
+      expect(route.request().method()).toBe("POST");
       if (failPhoto) return route.fulfill({ status: 503, json: { error: "No se pudo guardar la foto" } });
       avatar = route.request().postDataJSON().avatar; data = { avatar_url: avatar };
       if (holdPhoto) return new Promise<void>(resolve => { releasePhoto = () => { void route.fulfill({ json: data }).then(() => resolve()); }; });
     }
     return route.fulfill({ json: data });
   });
-  return { calls, switchIdentity: () => { identity = 9; }, holdPhoto: () => { holdPhoto = true; }, releasePhoto: () => releasePhoto?.(), photoFailure: (value: boolean) => { failPhoto = value; }, listFailure: (value: boolean) => { failList = value; } };
+  return { calls, directoryReads: () => directoryReads, switchIdentity: () => { identity = 9; }, holdPhoto: () => { holdPhoto = true; }, releasePhoto: () => releasePhoto?.(), photoFailure: (value: boolean) => { failPhoto = value; }, listFailure: (value: boolean) => { failList = value; } };
 }
 
 test("directorio: puntuación, invitación, paginación, búsqueda y recuperación", async ({ page }) => {
@@ -56,6 +58,7 @@ test("directorio: puntuación, invitación, paginación, búsqueda y recuperaci�
   await expect(directory.getByRole("alert")).toContainText("No se pudo cargar");
   state.listFailure(false);
   await directory.getByRole("button", { name: "Volver a cargar" }).click();
+  await expect.poll(() => state.directoryReads()).toBe(5);
   await expect(directory.getByRole("heading", { name: "Elena" })).toBeVisible();
   for (const theme of ["light", "dark"]) {
     await page.getByLabel("Apariencia").selectOption(theme);
@@ -128,6 +131,10 @@ test("directorio y foto reales: invitación consentida y perfil persistente", as
     await courier.getByRole("button", { name: "Aceptar invitación", exact: true }).click();
     await company.getByRole("navigation", { name: "Secciones", exact: true }).getByRole("button", { name: "Mi red", exact: true }).click();
     await company.getByRole("navigation", { name: "Secciones", exact: true }).getByRole("button", { name: "Directorio", exact: true }).click();
+    // Returning to the directory resets its search and pagination. Reapply the
+    // query so this assertion remains valid when the test DB contains many users.
+    await company.getByLabel("Buscar repartidor por nombre").fill(`Perfil courier ${stamp}`);
+    await company.getByRole("button", { name: "Buscar", exact: true }).click();
     await expect(company.locator(".courier-card").filter({ hasText: `Perfil courier ${stamp}` }).getByRole("button", { name: "En tu red" })).toBeDisabled();
   } finally { await companyContext.close(); await courierContext.close(); }
 });

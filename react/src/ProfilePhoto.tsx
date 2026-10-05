@@ -8,7 +8,7 @@ export function ProfilePhoto({ user, updated, sessionCurrent }: { user: User; up
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   async function save(avatar: string) {
     if (!sessionCurrent()) throw new Error("La sesión cambió. Vuelve a entrar para cambiar tu foto.");
-    const response = await api<{ avatar_url: string }>("/profile/avatar", "PUT", { avatar });
+    const response = await api<{ avatar_url: string }>("/profile/avatar", "POST", { avatar });
     if (!sessionCurrent()) return;
     updated(response.avatar_url);
     setNotice(avatar ? "Foto de perfil guardada" : "Foto de perfil eliminada");

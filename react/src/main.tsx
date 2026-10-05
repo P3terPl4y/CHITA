@@ -123,6 +123,7 @@ function App() {
       longitude: number;
     } | null>(null);
   const detailPanel = useRef<HTMLElement>(null);
+  const profileOrigin = useRef<{ lat: number; lng: number } | null>(null);
   const watch = useRef<number | null>(null),
     beat = useRef<ReturnType<typeof setInterval> | null>(null),
     gps = useRef<GeolocationPosition | null>(null),
@@ -176,36 +177,55 @@ function App() {
       document.getElementById("contenido")?.focus({ preventScroll: true }),
     );
   }
-  async function refresh(requestPage = page) {
-    const version = generation.current;
-    const orderVersion = rankingVersion.current;
-    const [a, b, n] = await Promise.all([
-      api<{ items: Job[]; total: number }>(
-        "/jobs?page=" +
-          requestPage +
-          (rankingOrigin
-            ? `&lat=${rankingOrigin.lat}&lng=${rankingOrigin.lng}`
-            : ""),
-      ),
-      api<Network[]>("/network"),
-      api<Notice[]>("/notifications"),
-    ]);
+  async function refreshJobs(
+    requestPage: number,
+    version: number,
+    orderVersion: number,
+    includeTotal = true,
+  ) {
+    // Reuse the already loaded courier profile for feed ranking. Without this,
+    // the API performs an extra profile lookup on every periodic feed request.
+    const origin = rankingOrigin ??
+      (user?.role === "courier" ? profileOrigin.current : null);
+    const a = await api<{ items: Job[]; total?: number }>(
+      "/jobs?page=" +
+        requestPage +
+        (includeTotal ? "" : "&total=false") +
+        (origin
+          ? `&lat=${origin.lat}&lng=${origin.lng}`
+          : ""),
+    );
     if (
       version !== generation.current ||
       orderVersion !== rankingVersion.current
     )
       return;
     setJobs(a.items);
-    setTotal(a.total);
-    setNetwork(b);
-    setNotices(n);
+    if (includeTotal && typeof a.total === "number") setTotal(a.total);
     setSelected((prev) =>
       prev ? a.items.find((j) => j.id === prev.id) || prev : null,
     );
-    if (user?.role === "courier") {
-      const h = await api<{ linked: boolean }>("/halcon");
-      if (version === generation.current) setLinked(h.linked);
-    }
+  }
+  async function refreshSideData(version: number, includeHalcon: boolean) {
+    const [networkData, noticeData, halconData] = await Promise.all([
+      api<Network[]>("/network"),
+      api<Notice[]>("/notifications"),
+      includeHalcon && user?.role === "courier"
+        ? api<{ linked: boolean }>("/halcon")
+        : Promise.resolve(null),
+    ]);
+    if (version !== generation.current) return;
+    setNetwork(networkData);
+    setNotices(noticeData);
+    if (halconData) setLinked(halconData.linked);
+  }
+  async function refresh(requestPage = page) {
+    const version = generation.current;
+    const orderVersion = rankingVersion.current;
+    await Promise.all([
+      refreshJobs(requestPage, version, orderVersion),
+      refreshSideData(version, true),
+    ]);
   }
   useEffect(() => {
     const wentOnline = () => setOnline(true);
@@ -228,27 +248,65 @@ function App() {
     pollingFailure.current = false;
     const version = generation.current;
     let live = true;
-    refresh().catch((e) => live && setError(e.message));
     api<{ profile: typeof profile }>("/profile")
       .then((x) => {
-        if (live && version === generation.current) setProfile(x.profile);
+        if (live && version === generation.current) {
+          setProfile(x.profile);
+          profileOrigin.current = x.profile
+            ? { lat: x.profile.latitude, lng: x.profile.longitude }
+            : null;
+        }
       })
       .catch((e) => live && setError(e.message));
-    const timer = setInterval(() => {
-      void refresh().then(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let pollCount = 0;
+    let pollRunning = false;
+    const schedule = (delay: number) => {
+      timer = setTimeout(() => void poll(), delay);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timer);
+        if (!pollRunning) schedule(0);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const poll = async () => {
+      if (!live || pollRunning) return;
+      pollRunning = true;
+      if (document.visibilityState === "hidden") {
+        pollRunning = false;
+        schedule(30000);
+        return;
+      }
+      const orderVersion = rankingVersion.current;
+      try {
+        await refreshJobs(page, version, orderVersion, false);
+        pollCount++;
+        if (pollCount % 2 === 0)
+          await refreshSideData(version, pollCount % 4 === 0);
+        if (!live || version !== generation.current) return;
         if (!live || !pollingFailure.current) return;
         pollingFailure.current = false;
         setError((current) => current === "No se pudo actualizar la información. CHITA volverá a intentarlo automáticamente." ? "" : current);
         setNotice((current) => current || "Conexión recuperada; la información se actualizó.");
-      }).catch(() => {
-        if (!live || pollingFailure.current) return;
-        pollingFailure.current = true;
-        setError((current) => current || "No se pudo actualizar la información. CHITA volverá a intentarlo automáticamente.");
-      });
-    }, 15000);
+      } catch {
+        if (live && !pollingFailure.current) {
+          pollingFailure.current = true;
+          setError((current) => current || "No se pudo actualizar la información. CHITA volverá a intentarlo automáticamente.");
+        }
+      } finally {
+        pollRunning = false;
+        if (live) schedule(15000 + Math.floor(Math.random() * 2000));
+      }
+    };
+    void refresh().catch((e) => live && setError(e.message)).finally(() => {
+      if (live) schedule(15000 + Math.floor(Math.random() * 2000));
+    });
     return () => {
       live = false;
-      clearInterval(timer);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [user?.id, page, rankingOrigin?.lat, rankingOrigin?.lng]);
   useEffect(() => {
@@ -336,6 +394,7 @@ function App() {
       setNetwork([]);
       setNotices([]);
       setProfile(null);
+      profileOrigin.current = null;
       setLinked(false);
       setTab("jobs");
       setCreating(false);
@@ -561,6 +620,7 @@ function App() {
                   await api("/auth/logout", "POST", {});
                   generation.current++;
                   setProfile(null);
+                  profileOrigin.current = null;
                   setTab("jobs");
                   setCreating(false);
       setJobFilter("all");
@@ -1457,17 +1517,24 @@ function App() {
                 {tab === "profile" && (
                   <>
                     <aside className="panel account-summary">
-                      <h2>Mi cuenta</h2>
+                      <div className="account-summary-title">
+                        <h2>Mi cuenta</h2>
+                        <span className="account-role-tag">
+                          {user.role === "company" ? "Empresa" : "Repartidor"}
+                        </span>
+                      </div>
                       <ProfilePhoto user={user} sessionCurrent={() => generation.current === accountGeneration} updated={avatar_url => setUser(current => current?.id === user.id ? { ...current, avatar_url } : current)} />
-                      <p>
-                        <b>{user.name}</b> ·{" "}
-                        {user.role === "company" ? "Empresa" : "Repartidor"}
-                      </p>
-                      <p>{user.email}</p>
-                      <p className="muted">
+                      <div className="account-identity">
+                        <strong>{user.name}</strong>
+                        <span>{user.email}</span>
+                      </div>
+                      <p className="account-purpose">
+                        <strong>Uso de tu ubicación</strong>
+                        <span>
                         {user.role === "company"
                           ? "Tu dirección sirve como referencia para publicar recogidas y buscar repartidores cercanos."
                           : "Tu ubicación de referencia ayuda a ordenar las recogidas cercanas. No activa el envío de GPS."}
+                        </span>
                       </p>
                       {user.role === "courier" && (
                         <RatingCard courierID={user.id} readonly />
@@ -1485,11 +1552,11 @@ function App() {
                       {profile && (
                         <ProfileLocation
                           profile={profile}
-                          saved={async () => {
-                            const r = await api<{ profile: typeof profile }>(
-                              "/profile",
-                            );
-                            setProfile(r.profile);
+                          saved={(next) => {
+                            setProfile(next);
+                            profileOrigin.current = next
+                              ? { lat: next.latitude, lng: next.longitude }
+                              : null;
                           }}
                         />
                       )}
@@ -1549,7 +1616,7 @@ function App() {
                         onClick={() =>
                           run(async () => {
                             stop();
-                            await api("/halcon", "DELETE");
+                            await api("/halcon/unlink", "POST", {});
                             setLinked(false);
                           })
                         }

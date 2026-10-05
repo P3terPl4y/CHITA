@@ -49,7 +49,7 @@ export function RatingCard({
     setError("");
     setNotice("");
     try {
-      const x = await api<Summary>(`/couriers/${courierID}/rating`, "PUT", {
+      const x = await api<Summary>(`/couriers/${courierID}/rating`, "POST", {
         rating: Number(data.get("rating")),
         comment: data.get("comment"),
       });

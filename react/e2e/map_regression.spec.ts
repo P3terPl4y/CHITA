@@ -102,20 +102,34 @@ for (const role of ["company", "courier"]) {
       exact: true,
     });
     await map.scrollIntoViewIfNeeded();
+    await expect(map.locator(".leaflet-control-zoom-in")).toHaveAttribute(
+      "aria-label",
+      "Acercar el mapa",
+    );
+    await expect(map.locator(".leaflet-control-zoom-out")).toHaveAttribute(
+      "aria-label",
+      "Alejar el mapa",
+    );
     for (let i = 0; i < 3; i++) {
-      await map.getByRole("button", { name: "Zoom in", exact: true }).click();
+      await map.getByRole("button", { name: "Acercar el mapa", exact: true }).click();
       await contained(page);
     }
     await map.focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowDown");
     for (let i = 0; i < 4; i++) {
-      await map.getByRole("button", { name: "Zoom out", exact: true }).click();
+      await map.getByRole("button", { name: "Alejar el mapa", exact: true }).click();
       await contained(page);
     }
     await page.evaluate(() => (document.documentElement.style.zoom = "1.25"));
     await contained(page);
     await page.evaluate(() => (document.documentElement.style.zoom = "1"));
+    await page.getByLabel("Apariencia").selectOption("dark");
+    const tileFilter = await map.locator(".leaflet-tile").first().evaluate((tile) =>
+      getComputedStyle(tile).filter,
+    );
+    expect(tileFilter).toContain("invert(1)");
+    await page.getByLabel("Apariencia").selectOption("light");
     for (const width of [1920, 1440, 1024, 800, 768, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await contained(page);
@@ -184,7 +198,7 @@ for (const role of ["company", "courier"]) {
       name: "Elegir dirección del perfil",
       exact: true,
     });
-    await map.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await map.getByRole("button", { name: "Acercar el mapa", exact: true }).click();
     await map.click({ position: { x: 180, y: 120 } });
     await expect(page.getByLabel("Dirección seleccionada")).toHaveValue(
       "Dirección persistida desde el mapa",
@@ -192,7 +206,7 @@ for (const role of ["company", "courier"]) {
     const response = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/profile/location") &&
-        r.request().method() === "PUT",
+        r.request().method() === "POST",
     );
     await page
       .getByRole("button", { name: "Guardar ubicación", exact: true })
@@ -218,12 +232,12 @@ for (const role of ["company", "courier"]) {
       String(persisted.profile.longitude),
     );
     session = await (await page.request.get("/api/session")).json();
-    const invalid = await page.request.put("/api/profile/location", {
+    const invalid = await page.request.post("/api/profile/location", {
       headers: { "X-CSRF-Token": session.csrf_token },
       data: { ...sent, user_id: 999 },
     });
     expect(invalid.status()).toBe(422);
-    const noCSRF = await page.request.put("/api/profile/location", {
+    const noCSRF = await page.request.post("/api/profile/location", {
       data: sent,
     });
     expect(noCSRF.status()).toBe(403);
@@ -236,7 +250,7 @@ for (const role of ["company", "courier"]) {
     await expect(
       page.getByRole("button", { name: "Salir", exact: true }),
     ).toHaveCount(0);
-    const noAuth = await page.request.put("/api/profile/location", {
+    const noAuth = await page.request.post("/api/profile/location", {
       headers: {
         "X-CSRF-Token": (await (await page.request.get("/api/session")).json())
           .csrf_token,

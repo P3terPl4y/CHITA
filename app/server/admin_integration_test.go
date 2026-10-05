@@ -45,6 +45,7 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 			c.want(403, "POST", base, map[string]any{})
 			c.want(403, "GET", base+"/1", nil)
 			c.want(403, "PUT", base+"/1", map[string]any{})
+			c.want(403, "POST", base+"/1", map[string]any{})
 			c.want(403, "DELETE", base+"/1", map[string]any{})
 			c.want(403, "POST", base+"/1/restore", map[string]any{})
 		}
@@ -92,8 +93,8 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 			r["password"] = ""
 			r["version"] = x["version"]
 			r["name"] = "Nombre editado"
-			x = admin.want(200, "PUT", path, r)
-			admin.want(409, "PUT", path, r)
+			x = admin.want(200, "POST", path, r)
+			admin.want(409, "POST", path, r)
 			if x["name"] != "Nombre editado" {
 				t.Fatal("edit failed")
 			}
@@ -116,7 +117,7 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 			r["enabled"] = true
 			x = admin.want(200, "PUT", path, r)
 			login.want(401, "GET", "/api/profile", nil)
-			x = admin.want(200, "DELETE", path, map[string]any{"version": x["version"], "reason": "Archivar cuenta de prueba"})
+			x = admin.want(200, "POST", path+"/archive", map[string]any{"version": x["version"], "reason": "Archivar cuenta de prueba"})
 			if x["archived"] != true {
 				t.Fatal("archive failed")
 			}
@@ -156,16 +157,16 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 	normal := fmt.Sprintf("/api/jobs/%.0f", job["id"])
 	r["version"] = job["version"]
 	r["title"] = "Trabajo editado"
-	job = admin.want(200, "PUT", path, r)
+	job = admin.want(200, "POST", path, r)
 	admin.want(409, "PUT", path, r)
-	job = admin.want(200, "DELETE", path, map[string]any{"version": job["version"], "reason": "Archivar publicación disponible"})
+	job = admin.want(200, "POST", path+"/archive", map[string]any{"version": job["version"], "reason": "Archivar publicación disponible"})
 	rider.want(404, "GET", normal, nil)
 	job = admin.want(200, "POST", path+"/restore", map[string]any{"version": job["version"], "reason": "Restaurar publicación disponible"})
 	rider.want(200, "POST", normal+"/accept", map[string]any{})
 	job = admin.want(200, "GET", path, nil)
 	r["version"] = job["version"]
 	admin.want(409, "PUT", path, r)
-	admin.want(409, "DELETE", path, map[string]any{"version": job["version"], "reason": "Intento archivar entrega activa"})
+	admin.want(409, "POST", path+"/archive", map[string]any{"version": job["version"], "reason": "Intento archivar entrega activa"})
 	for _, pair := range []struct {
 		entity string
 		record map[string]any
@@ -176,7 +177,7 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 		x["version"] = pair.record["version"]
 		x["enabled"] = false
 		admin.want(409, "PUT", entityPath, x)
-		admin.want(409, "DELETE", entityPath, map[string]any{"version": pair.record["version"], "reason": "Intento archivar cuenta ocupada"})
+		admin.want(409, "POST", entityPath+"/archive", map[string]any{"version": pair.record["version"], "reason": "Intento archivar cuenta ocupada"})
 	}
 	rider.want(200, "POST", normal+"/pickup", map[string]any{})
 	job = admin.want(200, "GET", path, nil)
@@ -185,7 +186,7 @@ func TestAdminCRUDAndSecurity(t *testing.T) {
 	rider.want(200, "POST", normal+"/report", map[string]any{})
 	owner.want(200, "POST", normal+"/confirm", map[string]any{})
 	job = admin.want(200, "GET", path, nil)
-	job = admin.want(200, "DELETE", path, map[string]any{"version": job["version"], "reason": "Archivar entrega completada"})
+	job = admin.want(200, "POST", path+"/archive", map[string]any{"version": job["version"], "reason": "Archivar entrega completada"})
 	if job["status"] != "completed" {
 		t.Fatal("history destroyed")
 	}

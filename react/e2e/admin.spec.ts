@@ -6,6 +6,7 @@ test("panel administrativo accesible en móvil y escritorio", async ({
 }) => {
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    expect(["PUT", "DELETE"]).not.toContain(route.request().method());
     const user = {
       id: 99,
       name: "Administración",
@@ -181,7 +182,7 @@ test("CRUD de empresa, repartidor y trabajo desde el navegador", async ({
     await page.getByLabel("Latitud", { exact: true }).fill("23.1");
     await page.getByLabel("Longitud", { exact: true }).fill("-82.3");
     await page
-      .getByRole("button", { name: "Seleccionar centro del mapa", exact: true })
+      .getByRole("button", { name: "Colocar pin en el centro", exact: true })
       .click();
     await expect(page.getByLabel("Dirección", { exact: true })).toHaveValue(
       "Dirección desde el mapa",
@@ -269,7 +270,7 @@ test("CRUD de empresa, repartidor y trabajo desde el navegador", async ({
   for (const label of ["Longitud de recogida", "Longitud de entrega"])
     await page.getByLabel(label).fill("-82.3");
   await page
-    .getByRole("button", { name: "Seleccionar centro del mapa", exact: true })
+    .getByRole("button", { name: "Colocar pin en el centro", exact: true })
     .first()
     .click();
   await expect(

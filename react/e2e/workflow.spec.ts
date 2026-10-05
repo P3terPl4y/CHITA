@@ -39,7 +39,7 @@ test("login y registro son accesibles y adaptables", async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Coordina la siguiente entrega." }),
+      page.getByRole("heading", { name: "Publica. Reparte. Entrega." }),
     ).toBeVisible();
     await fits(page);
     await page
@@ -191,7 +191,7 @@ test("empresa invita, publica y confirma; repartidor acepta y entrega", async ({
   });
   await company.getByRole("button", { name: "Salir" }).click();
   await expect(
-    company.getByRole("heading", { name: "Coordina la siguiente entrega." }),
+    company.getByRole("heading", { name: "Publica. Reparte. Entrega." }),
   ).toBeVisible();
   await ctx1.close();
   await ctx2.close();
